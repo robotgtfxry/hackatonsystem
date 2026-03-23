@@ -7,21 +7,28 @@
 
 <ul class="nav nav-tabs mb-3" role="tablist">
     <li class="nav-item">
-        <a class="nav-link active" data-bs-toggle="tab" href="#users">Użytkownicy</a>
+        <a class="nav-link active" data-bs-toggle="tab" href="#users">Użytkownicy ({{ users.count }})</a>
     </li>
     <li class="nav-item">
         <a class="nav-link" data-bs-toggle="tab" href="#jury">Jury</a>
     </li>
     <li class="nav-item">
-        <a class="nav-link" data-bs-toggle="tab" href="#hackathons">Hackatony</a>
+        <a class="nav-link" data-bs-toggle="tab" href="#teams-tab">Zespoły ({{ teams.count }})</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" data-bs-toggle="tab" href="#projects-tab">Projekty ({{ projects.count }})</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" data-bs-toggle="tab" href="#hackathons">Hackatony ({{ hackathons.count }})</a>
     </li>
 </ul>
 
 <div class="tab-content">
+    <!-- UŻYTKOWNICY -->
     <div class="tab-pane fade show active" id="users">
         <table class="table">
             <thead>
-                <tr><th>Username</th><th>Imię i nazwisko</th><th>Email</th><th>Rola</th><th>Zmień rolę</th></tr>
+                <tr><th>Username</th><th>Imię i nazwisko</th><th>Email</th><th>Rola</th><th>Zmień rolę</th><th>Akcje</th></tr>
             </thead>
             <tbody>
                 {% for u in users %}
@@ -41,19 +48,33 @@
                                 <button type="submit" class="btn btn-sm btn-outline-primary">Zmień</button>
                             </form>
                         </td>
+                        <td>
+                            {% if u != request.user %}
+                                <form method="post" action="{% url 'hackathon:delete_user' u.pk %}" class="d-inline"
+                                      onsubmit="return confirm('Na pewno usunąć użytkownika {{ u.username }}? Zostaną usunięte wszystkie jego zespoły, projekty i oceny!')">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-danger">
+                                        <i class="bi bi-trash"></i> Usuń
+                                    </button>
+                                </form>
+                            {% else %}
+                                <span class="text-muted">To Ty</span>
+                            {% endif %}
+                        </td>
                     </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 
+    <!-- JURY -->
     <div class="tab-pane fade" id="jury">
         <a href="{% url 'hackathon:create_jury' %}" class="btn btn-primary mb-3">
             <i class="bi bi-person-plus"></i> Utwórz konto jury
         </a>
         <table class="table">
             <thead>
-                <tr><th>Username</th><th>Imię i nazwisko</th><th>Email</th></tr>
+                <tr><th>Username</th><th>Imię i nazwisko</th><th>Email</th><th>Akcje</th></tr>
             </thead>
             <tbody>
                 {% for u in users %}
@@ -62,6 +83,15 @@
                             <td>{{ u.username }}</td>
                             <td>{{ u.get_full_name }}</td>
                             <td>{{ u.email }}</td>
+                            <td>
+                                <form method="post" action="{% url 'hackathon:delete_user' u.pk %}" class="d-inline"
+                                      onsubmit="return confirm('Na pewno usunąć konto jury {{ u.username }}?')">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-danger">
+                                        <i class="bi bi-trash"></i> Usuń
+                                    </button>
+                                </form>
+                            </td>
                         </tr>
                     {% endif %}
                 {% endfor %}
@@ -69,11 +99,80 @@
         </table>
     </div>
 
+    <!-- ZESPOŁY -->
+    <div class="tab-pane fade" id="teams-tab">
+        <table class="table">
+            <thead>
+                <tr><th>Nazwa</th><th>Hackathon</th><th>Kapitan</th><th>Członkowie</th><th>Projekt</th><th>Akcje</th></tr>
+            </thead>
+            <tbody>
+                {% for t in teams %}
+                    <tr>
+                        <td><a href="{% url 'teams:detail' t.pk %}">{{ t.name }}</a></td>
+                        <td>{{ t.hackathon.name }}</td>
+                        <td>{{ t.captain.get_full_name|default:t.captain.username }}</td>
+                        <td>{{ t.members.count }}/{{ t.hackathon.max_team_size }}</td>
+                        <td>
+                            {% if t.project %}
+                                <span class="badge bg-success">Oddany</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Brak</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <form method="post" action="{% url 'hackathon:delete_team' t.pk %}" class="d-inline"
+                                  onsubmit="return confirm('Na pewno usunąć zespół {{ t.name }}? Projekt zespołu też zostanie usunięty!')">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-danger">
+                                    <i class="bi bi-trash"></i> Usuń
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="6" class="text-muted">Brak zespołów.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- PROJEKTY -->
+    <div class="tab-pane fade" id="projects-tab">
+        <table class="table">
+            <thead>
+                <tr><th>Tytuł</th><th>Zespół</th><th>Hackathon</th><th>Status</th><th>Data</th><th>Akcje</th></tr>
+            </thead>
+            <tbody>
+                {% for p in projects %}
+                    <tr>
+                        <td><a href="{% url 'projects:detail' p.pk %}">{{ p.title }}</a></td>
+                        <td>{{ p.team.name }}</td>
+                        <td>{{ p.team.hackathon.name }}</td>
+                        <td><span class="badge bg-{% if p.status == 'submitted' %}success{% else %}secondary{% endif %}">{{ p.get_status_display }}</span></td>
+                        <td>{{ p.submitted_at|date:"d.m.Y H:i" }}</td>
+                        <td>
+                            <form method="post" action="{% url 'hackathon:delete_project' p.pk %}" class="d-inline"
+                                  onsubmit="return confirm('Na pewno usunąć projekt {{ p.title }}?')">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-danger">
+                                    <i class="bi bi-trash"></i> Usuń
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="6" class="text-muted">Brak projektów.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- HACKATONY -->
     <div class="tab-pane fade" id="hackathons">
         <a href="{% url 'hackathon:create' %}" class="btn btn-primary mb-3">Nowy hackathon</a>
         <table class="table">
             <thead>
-                <tr><th>Nazwa</th><th>Status</th><th>Zespoły</th><th>Akcje</th></tr>
+                <tr><th>Nazwa</th><th>Status</th><th>Zespoły</th><th>Projekty</th><th>Akcje</th></tr>
             </thead>
             <tbody>
                 {% for h in hackathons %}
@@ -81,9 +180,19 @@
                         <td>{{ h.name }}</td>
                         <td><span class="badge bg-primary">{{ h.get_status_display }}</span></td>
                         <td>{{ h.teams.count }}</td>
+                        <td>{{ h.teams.count }}</td>
                         <td>
                             <a href="{% url 'hackathon:detail' h.pk %}" class="btn btn-sm btn-outline-primary">Szczegóły</a>
                             <a href="{% url 'hackathon:edit' h.pk %}" class="btn btn-sm btn-outline-secondary">Edytuj</a>
+                            <a href="{% url 'hackathon:manage_jury' h.pk %}" class="btn btn-sm btn-outline-info">Jury</a>
+                            <a href="{% url 'hackathon:manage_criteria' h.pk %}" class="btn btn-sm btn-outline-warning">Kryteria</a>
+                            <form method="post" action="{% url 'hackathon:delete_hackathon' h.pk %}" class="d-inline"
+                                  onsubmit="return confirm('Na pewno usunąć hackathon {{ h.name }}? Wszystkie zespoły, projekty i oceny zostaną usunięte!')">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-danger">
+                                    <i class="bi bi-trash"></i> Usuń
+                                </button>
+                            </form>
                         </td>
                     </tr>
                 {% endfor %}

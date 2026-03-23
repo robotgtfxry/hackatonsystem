@@ -14,4 +14,8 @@ urlpatterns = [
     path('admin-panel/', views.admin_panel, name='admin_panel'),
     path('admin-panel/create-jury/', views.create_jury, name='create_jury'),
     path('admin-panel/user/<int:user_id>/role/', views.change_user_role, name='change_user_role'),
+    path('admin-panel/user/<int:user_id>/delete/', views.delete_user, name='delete_user'),
+    path('admin-panel/team/<int:team_id>/delete/', views.delete_team, name='delete_team'),
+    path('admin-panel/project/<int:project_id>/delete/', views.delete_project, name='delete_project'),
+    path('<int:pk>/delete/', views.delete_hackathon, name='delete_hackathon'),
 ]

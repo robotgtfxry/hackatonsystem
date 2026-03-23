@@ -6,6 +6,8 @@ from .forms import HackathonForm, CreateJuryForm
 from accounts.models import UserProfile
 from judging.models import Criterion, JuryAssignment
 from django.contrib.auth.models import User
+from teams.models import Team
+from projects.models import Project
 
 
 def admin_required(view_func):
@@ -113,7 +115,14 @@ def delete_criterion(request, pk, criterion_pk):
 def admin_panel(request):
     hackathons = Hackathon.objects.all()
     users = User.objects.all().select_related('profile')
-    return render(request, 'hackathon/admin_panel.html', {'hackathons': hackathons, 'users': users})
+    teams = Team.objects.all().select_related('hackathon', 'captain')
+    projects = Project.objects.all().select_related('team', 'team__hackathon')
+    return render(request, 'hackathon/admin_panel.html', {
+        'hackathons': hackathons,
+        'users': users,
+        'teams': teams,
+        'projects': projects,
+    })
 
 
 @admin_required
@@ -146,4 +155,47 @@ def change_user_role(request, user_id):
             target_user.profile.role = new_role
             target_user.profile.save()
             messages.success(request, f'Rola użytkownika {target_user.username} zmieniona na {new_role}.')
+    return redirect('hackathon:admin_panel')
+
+
+@admin_required
+def delete_user(request, user_id):
+    target_user = get_object_or_404(User, pk=user_id)
+    if target_user == request.user:
+        messages.error(request, 'Nie możesz usunąć samego siebie.')
+        return redirect('hackathon:admin_panel')
+    if request.method == 'POST':
+        username = target_user.username
+        target_user.delete()
+        messages.success(request, f'Użytkownik "{username}" został usunięty.')
+    return redirect('hackathon:admin_panel')
+
+
+@admin_required
+def delete_team(request, team_id):
+    team = get_object_or_404(Team, pk=team_id)
+    if request.method == 'POST':
+        name = team.name
+        team.delete()
+        messages.success(request, f'Zespół "{name}" został usunięty.')
+    return redirect('hackathon:admin_panel')
+
+
+@admin_required
+def delete_project(request, project_id):
+    project = get_object_or_404(Project, pk=project_id)
+    if request.method == 'POST':
+        title = project.title
+        project.delete()
+        messages.success(request, f'Projekt "{title}" został usunięty.')
+    return redirect('hackathon:admin_panel')
+
+
+@admin_required
+def delete_hackathon(request, pk):
+    hackathon = get_object_or_404(Hackathon, pk=pk)
+    if request.method == 'POST':
+        name = hackathon.name
+        hackathon.delete()
+        messages.success(request, f'Hackathon "{name}" został usunięty.')
     return redirect('hackathon:admin_panel')
