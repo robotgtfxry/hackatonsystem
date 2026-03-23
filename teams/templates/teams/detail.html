@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ team.name }}{% endblock %}
+
+{% block content %}
+<h2>{{ team.name }}</h2>
+<p class="text-muted">Hackathon: <a href="{% url 'hackathon:detail' team.hackathon.pk %}">{{ team.hackathon.name }}</a></p>
+{% if team.description %}<p>{{ team.description }}</p>{% endif %}
+
+<h4>Członkowie ({{ members.count }}/{{ team.hackathon.max_team_size }})</h4>
+<table class="table">
+    <thead><tr><th>Użytkownik</th><th>Rola</th>{% if is_captain %}<th>Akcje</th>{% endif %}</tr></thead>
+    <tbody>
+        {% for m in members %}
+            <tr>
+                <td>{{ m.user.get_full_name|default:m.user.username }}</td>
+                <td><span class="badge bg-{% if m.role == 'captain' %}warning{% else %}secondary{% endif %}">{{ m.get_role_display }}</span></td>
+                {% if is_captain %}
+                    <td>
+                        {% if m.role != 'captain' %}
+                            <a href="{% url 'teams:remove_member' team.pk m.user.pk %}"
+                               class="btn btn-sm btn-outline-danger"
+                               onclick="return confirm('Usunąć tego członka?')">Usuń</a>
+                        {% endif %}
+                    </td>
+                {% endif %}
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% if is_captain %}
+    <a href="{% url 'teams:add_member' team.pk %}" class="btn btn-outline-primary me-2">Dodaj członka</a>
+{% endif %}
+
+{% if is_member %}
+    {% if has_project %}
+        <a href="{% url 'projects:detail' team.project.pk %}" class="btn btn-success">Zobacz projekt</a>
+        <a href="{% url 'projects:edit' team.project.pk %}" class="btn btn-outline-secondary">Edytuj projekt</a>
+    {% else %}
+        <a href="{% url 'projects:submit' team.pk %}" class="btn btn-primary">Oddaj projekt</a>
+    {% endif %}
+{% endif %}
+{% endblock %}

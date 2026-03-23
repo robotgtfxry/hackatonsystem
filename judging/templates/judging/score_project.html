@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block title %}Oceń: {{ project.title }}{% endblock %}
+
+{% block content %}
+<h2>Oceń projekt: {{ project.title }}</h2>
+<p class="text-muted">Zespół: {{ project.team.name }} | Hackathon: {{ hackathon.name }}</p>
+
+<div class="card p-4">
+    <form method="post">
+        {% csrf_token %}
+        {% for field in form %}
+            <div class="mb-3">
+                <label for="{{ field.id_for_label }}" class="form-label"><strong>{{ field.label }}</strong></label>
+                {{ field }}
+                {% if field.errors %}
+                    <div class="invalid-feedback d-block">{% for e in field.errors %}{{ e }}{% endfor %}</div>
+                {% endif %}
+            </div>
+        {% endfor %}
+        <button type="submit" class="btn btn-primary">Zapisz oceny</button>
+        <a href="{% url 'judging:jury_hackathon' hackathon.pk %}" class="btn btn-outline-secondary">Anuluj</a>
+    </form>
+</div>
+{% endblock %}

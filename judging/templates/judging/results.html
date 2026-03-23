@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+
+{% block title %}Wyniki - {{ hackathon.name }}{% endblock %}
+
+{% block content %}
+<h2><i class="bi bi-trophy"></i> Wyniki: {{ hackathon.name }}</h2>
+
+{% if rankings %}
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Projekt</th>
+                <th>Zespół</th>
+                {% for c in criteria %}
+                    <th>{{ c.name }} (x{{ c.weight }})</th>
+                {% endfor %}
+                <th><strong>SUMA</strong></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in rankings %}
+                <tr class="{% if forloop.counter == 1 %}ranking-1{% elif forloop.counter == 2 %}ranking-2{% elif forloop.counter == 3 %}ranking-3{% endif %}">
+                    <td><strong>{{ forloop.counter }}</strong></td>
+                    <td><a href="{% url 'projects:detail' r.project.pk %}">{{ r.project.title }}</a></td>
+                    <td>{{ r.project.team.name }}</td>
+                    {% for d in r.details %}
+                        <td>{{ d.avg }} ({{ d.weighted }})</td>
+                    {% endfor %}
+                    <td><strong>{{ r.total }}</strong></td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p class="text-muted">Brak wyników - nie ma jeszcze oddanych projektów.</p>
+{% endif %}
+
+<a href="{% url 'hackathon:detail' hackathon.pk %}" class="btn btn-outline-secondary">Powrót do hackatonu</a>
+{% endblock %}

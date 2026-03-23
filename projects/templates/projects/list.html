@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block title %}Projekty{% endblock %}
+
+{% block content %}
+<h2><i class="bi bi-code-slash"></i> Projekty</h2>
+
+<div class="row">
+    {% for project in projects %}
+        <div class="col-md-6 mb-3">
+            <div class="card p-3">
+                <h5>{{ project.title }}</h5>
+                <p class="text-muted mb-1">Zespół: {{ project.team.name }} | {{ project.team.hackathon.name }}</p>
+                <p>{{ project.description|truncatewords:25 }}</p>
+                <p><strong>Technologie:</strong> {{ project.technologies }}</p>
+                <a href="{% url 'projects:detail' project.pk %}" class="btn btn-sm btn-outline-primary">Szczegóły</a>
+            </div>
+        </div>
+    {% empty %}
+        <p class="text-muted">Brak oddanych projektów.</p>
+    {% endfor %}
+</div>
+{% endblock %}

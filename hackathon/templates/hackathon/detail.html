@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ hackathon.name }}{% endblock %}
+
+{% block content %}
+<h2>{{ hackathon.name }}</h2>
+<span class="badge bg-primary mb-3">{{ hackathon.get_status_display }}</span>
+
+<div class="card p-3 mb-4">
+    <p>{{ hackathon.description }}</p>
+    <p>
+        <strong>Start:</strong> {{ hackathon.date_start|date:"d.m.Y H:i" }}<br>
+        <strong>Koniec:</strong> {{ hackathon.date_end|date:"d.m.Y H:i" }}<br>
+        <strong>Deadline projektów:</strong> {{ hackathon.submit_deadline|date:"d.m.Y H:i" }}<br>
+        <strong>Max wielkość zespołu:</strong> {{ hackathon.max_team_size }}
+    </p>
+</div>
+
+{% if user.is_authenticated and user.profile.is_admin %}
+    <div class="mb-3">
+        <a href="{% url 'hackathon:edit' hackathon.pk %}" class="btn btn-outline-secondary">Edytuj</a>
+        <a href="{% url 'hackathon:manage_jury' hackathon.pk %}" class="btn btn-outline-info">Zarządzaj jury</a>
+        <a href="{% url 'hackathon:manage_criteria' hackathon.pk %}" class="btn btn-outline-warning">Kryteria</a>
+    </div>
+{% endif %}
+
+<h4>Zespoły ({{ teams.count }})</h4>
+<div class="row">
+    {% for team in teams %}
+        <div class="col-md-4 mb-3">
+            <div class="card p-3">
+                <h5>{{ team.name }}</h5>
+                <p class="text-muted">Kapitan: {{ team.captain.get_full_name|default:team.captain.username }}</p>
+                <a href="{% url 'teams:detail' team.pk %}" class="btn btn-sm btn-outline-primary">Szczegóły</a>
+            </div>
+        </div>
+    {% empty %}
+        <p class="text-muted">Brak zespołów.</p>
+    {% endfor %}
+</div>
+
+<a href="{% url 'judging:results' hackathon.pk %}" class="btn btn-success mt-2">Zobacz wyniki</a>
+{% endblock %}

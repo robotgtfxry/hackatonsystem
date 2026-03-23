@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+
+{% block title %}Hackatony{% endblock %}
+
+{% block content %}
+<h2><i class="bi bi-calendar-event"></i> Hackatony</h2>
+{% if user.is_authenticated and user.profile.is_admin %}
+    <a href="{% url 'hackathon:create' %}" class="btn btn-primary mb-3">Nowy hackathon</a>
+{% endif %}
+
+<div class="row">
+    {% for h in hackathons %}
+        <div class="col-md-6 mb-3">
+            <div class="card p-3">
+                <h4>{{ h.name }}</h4>
+                <p class="text-muted">{{ h.description|truncatewords:30 }}</p>
+                <p>
+                    <i class="bi bi-calendar"></i> {{ h.date_start|date:"d.m.Y H:i" }} - {{ h.date_end|date:"d.m.Y H:i" }}<br>
+                    <i class="bi bi-clock"></i> Deadline: {{ h.submit_deadline|date:"d.m.Y H:i" }}<br>
+                    <i class="bi bi-people"></i> Max zespół: {{ h.max_team_size }} osób
+                </p>
+                <span class="badge bg-primary mb-2">{{ h.get_status_display }}</span>
+                <div>
+                    <a href="{% url 'hackathon:detail' h.pk %}" class="btn btn-outline-primary btn-sm">Szczegóły</a>
+                    <a href="{% url 'judging:results' h.pk %}" class="btn btn-outline-success btn-sm">Wyniki</a>
+                </div>
+            </div>
+        </div>
+    {% empty %}
+        <p class="text-muted">Brak hackatonów.</p>
+    {% endfor %}
+</div>
+{% endblock %}

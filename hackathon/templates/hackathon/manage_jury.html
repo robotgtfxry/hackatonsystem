@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block title %}Zarządzaj jury - {{ hackathon.name }}{% endblock %}
+
+{% block content %}
+<h2>Zarządzaj jury: {{ hackathon.name }}</h2>
+<form method="post">
+    {% csrf_token %}
+    <div class="card p-3 mb-3">
+        {% for jp in jury_profiles %}
+            <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" name="jury_ids" value="{{ jp.user.id }}"
+                       id="jury_{{ jp.user.id }}" {% if jp.user.id in assigned %}checked{% endif %}>
+                <label class="form-check-label" for="jury_{{ jp.user.id }}">
+                    {{ jp.user.get_full_name|default:jp.user.username }} ({{ jp.user.email }})
+                </label>
+            </div>
+        {% empty %}
+            <p class="text-muted">Brak użytkowników z rolą jury. Zmień rolę w panelu admina.</p>
+        {% endfor %}
+    </div>
+    <button type="submit" class="btn btn-primary">Zapisz przypisania</button>
+    <a href="{% url 'hackathon:detail' hackathon.pk %}" class="btn btn-outline-secondary">Powrót</a>
+</form>
+{% endblock %}

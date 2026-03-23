@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+
+{% block title %}Hackathon System - Strona główna{% endblock %}
+
+{% block content %}
+<div class="text-center py-5">
+    <h1 class="display-4 mb-3"><i class="bi bi-trophy"></i> Hackathon System</h1>
+    <p class="lead text-muted">Platforma do organizacji hackatonów - rejestracja zespołów, oddawanie projektów, ocenianie przez jury</p>
+    <hr class="my-4">
+    {% if user.is_authenticated %}
+        <a href="{% url 'accounts:dashboard' %}" class="btn btn-primary btn-lg me-2">Mój Dashboard</a>
+        <a href="{% url 'hackathon:list' %}" class="btn btn-outline-primary btn-lg">Przeglądaj hackatony</a>
+    {% else %}
+        <a href="{% url 'accounts:register' %}" class="btn btn-primary btn-lg me-2">Zarejestruj się</a>
+        <a href="{% url 'accounts:login' %}" class="btn btn-outline-primary btn-lg">Zaloguj się</a>
+    {% endif %}
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-4">
+        <div class="card text-center p-4">
+            <i class="bi bi-people display-4 text-primary"></i>
+            <h3 class="mt-3">Zespoły</h3>
+            <p>Twórz zespoły, zapraszaj członków i pracujcie razem nad projektem.</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center p-4">
+            <i class="bi bi-code-slash display-4 text-success"></i>
+            <h3 class="mt-3">Projekty</h3>
+            <p>Oddawaj projekty z opisem, linkami do repo i demo.</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center p-4">
+            <i class="bi bi-star display-4 text-warning"></i>
+            <h3 class="mt-3">Ocenianie</h3>
+            <p>Jury ocenia projekty wg kryteriów. Ranking w czasie rzeczywistym.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
