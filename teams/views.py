@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.contrib.auth.models import User
-from .models import Team, TeamMember
+from .models import Team, TeamMember, InviteLink
 from .forms import TeamForm, AddMemberForm
 
 
@@ -92,3 +92,51 @@ def remove_member(request, pk, user_id):
     member.delete()
     messages.success(request, 'Członek usunięty z zespołu.')
     return redirect('teams:detail', pk=pk)
+
+
+@login_required
+def generate_invite(request, pk):
+    team = get_object_or_404(Team, pk=pk)
+    if team.captain != request.user:
+        messages.error(request, 'Tylko kapitan może generować linki zaproszeniowe.')
+        return redirect('teams:detail', pk=pk)
+
+    uses = int(request.POST.get('uses', 1))
+    invite = InviteLink.objects.create(team=team, created_by=request.user, uses_left=uses)
+    invite_url = request.build_absolute_uri(f'/teams/join/{invite.token}/')
+    messages.success(request, f'Link zaproszeniowy wygenerowany!')
+    return render(request, 'teams/invite_generated.html', {
+        'team': team,
+        'invite': invite,
+        'invite_url': invite_url,
+    })
+
+
+@login_required
+def join_team(request, token):
+    invite = get_object_or_404(InviteLink, token=token)
+
+    if not invite.is_active or invite.uses_left <= 0:
+        messages.error(request, 'Ten link zaproszeniowy jest nieaktywny lub wyczerpany.')
+        return redirect('teams:list')
+
+    team = invite.team
+
+    if team.members.filter(user=request.user).exists():
+        messages.warning(request, 'Już jesteś w tym zespole.')
+        return redirect('teams:detail', pk=team.pk)
+
+    if team.members.count() >= team.hackathon.max_team_size:
+        messages.error(request, 'Zespół osiągnął maksymalną wielkość.')
+        return redirect('teams:list')
+
+    if request.method == 'POST':
+        TeamMember.objects.create(team=team, user=request.user, role='member')
+        invite.uses_left -= 1
+        if invite.uses_left <= 0:
+            invite.is_active = False
+        invite.save()
+        messages.success(request, f'Dołączyłeś do zespołu "{team.name}"!')
+        return redirect('teams:detail', pk=team.pk)
+
+    return render(request, 'teams/join_confirm.html', {'team': team, 'invite': invite})

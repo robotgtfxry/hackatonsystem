@@ -11,7 +11,9 @@
       "Bash(py -m django startproject hackatonsystem .)",
       "Bash(for app:*)",
       "Bash(do py:*)",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(py manage.py makemigrations)",
+      "Bash(py manage.py migrate)"
     ]
   }
 }

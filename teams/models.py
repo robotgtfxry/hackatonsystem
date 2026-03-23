@@ -1,3 +1,4 @@
+import uuid
 from django.db import models
 from django.contrib.auth.models import User
 from hackathon.models import Hackathon
@@ -33,3 +34,15 @@ class TeamMember(models.Model):
 
     class Meta:
         unique_together = ['team', 'user']
+
+
+class InviteLink(models.Model):
+    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='invite_links')
+    token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    uses_left = models.PositiveIntegerField(default=1)
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"Zaproszenie do {self.team.name} ({self.token})"

@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from .models import Hackathon
-from .forms import HackathonForm
+from .forms import HackathonForm, CreateJuryForm
 from accounts.models import UserProfile
 from judging.models import Criterion, JuryAssignment
 from django.contrib.auth.models import User
@@ -114,6 +114,27 @@ def admin_panel(request):
     hackathons = Hackathon.objects.all()
     users = User.objects.all().select_related('profile')
     return render(request, 'hackathon/admin_panel.html', {'hackathons': hackathons, 'users': users})
+
+
+@admin_required
+def create_jury(request):
+    if request.method == 'POST':
+        form = CreateJuryForm(request.POST)
+        if form.is_valid():
+            user = User.objects.create_user(
+                username=form.cleaned_data['username'],
+                email=form.cleaned_data['email'],
+                password=form.cleaned_data['password'],
+                first_name=form.cleaned_data['first_name'],
+                last_name=form.cleaned_data['last_name'],
+            )
+            user.profile.role = 'jury'
+            user.profile.save()
+            messages.success(request, f'Konto jury "{user.get_full_name()}" zostało utworzone!')
+            return redirect('hackathon:admin_panel')
+    else:
+        form = CreateJuryForm()
+    return render(request, 'hackathon/create_jury.html', {'form': form})
 
 
 @admin_required

@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block title %}Link zaproszeniowy - {{ team.name }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card p-4">
+            <h2><i class="bi bi-link-45deg"></i> Link zaproszeniowy</h2>
+            <p>Zespół: <strong>{{ team.name }}</strong></p>
+            <p>Pozostałe użycia: <strong>{{ invite.uses_left }}</strong></p>
+
+            <div class="input-group mb-3">
+                <input type="text" class="form-control" id="inviteUrl" value="{{ invite_url }}" readonly>
+                <button class="btn btn-outline-primary" onclick="copyLink()">
+                    <i class="bi bi-clipboard"></i> Kopiuj
+                </button>
+            </div>
+            <div id="copyMsg" class="text-success mb-3" style="display:none;">Skopiowano!</div>
+
+            <p class="text-muted">Wyślij ten link osobie, którą chcesz zaprosić do zespołu. Musi mieć konto w systemie.</p>
+
+            <a href="{% url 'teams:detail' team.pk %}" class="btn btn-outline-secondary">Powrót do zespołu</a>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyLink() {
+    var input = document.getElementById('inviteUrl');
+    input.select();
+    navigator.clipboard.writeText(input.value);
+    document.getElementById('copyMsg').style.display = 'block';
+    setTimeout(function() {
+        document.getElementById('copyMsg').style.display = 'none';
+    }, 2000);
+}
+</script>
+{% endblock %}
