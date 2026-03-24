@@ -55,6 +55,7 @@ class JuryMember(models.Model):
     email = models.EmailField(unique=True, verbose_name='Email')
     qr_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, verbose_name='Token QR')
     is_active = models.BooleanField(default=True, verbose_name='Aktywny')
+    session_active = models.BooleanField(default=False, verbose_name='Sesja aktywna')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

@@ -191,20 +191,21 @@ def jury_member_toggle(request, pk):
 # ============================================================
 
 def jury_qr_display(request, qr_token):
-    """Strona wyświetlająca kod QR członka jury."""
+    """Strona wyświetlająca kod QR członka jury (do wydruku / pokazania adminowi)."""
     member = get_object_or_404(JuryMember, qr_token=qr_token)
     return render(request, 'judging/jury_qr_display.html', {'member': member})
 
 
 @admin_required
 def jury_scanner(request):
-    """Panel admina ze skanerem QR."""
-    return render(request, 'judging/jury_scanner.html')
+    """Panel admina ze skanerem QR — skanuje kod i aktywuje sesję jury."""
+    active_members = JuryMember.objects.filter(session_active=True).order_by('-created_at')
+    return render(request, 'judging/jury_scanner.html', {'active_members': active_members})
 
 
 @require_POST
 def jury_qr_auth(request):
-    """Endpoint autoryzacji QR — admin skanuje kod, system tworzy sesję jury."""
+    """Admin skanuje QR → aktywuje sesję tego członka jury."""
     import json
     try:
         data = json.loads(request.body)
@@ -217,51 +218,54 @@ def jury_qr_auth(request):
     except (JuryMember.DoesNotExist, ValueError):
         return JsonResponse({'success': False, 'error': 'Nieprawidłowy lub nieaktywny token.'}, status=400)
 
-    request.session['jury_member_id'] = member.pk
-    request.session['jury_member_name'] = member.name
+    member.session_active = True
+    member.save()
     return JsonResponse({'success': True, 'name': member.name, 'id': member.pk})
 
 
-def jury_session_login(request, qr_token):
-    """Jury member odwiedza ten URL żeby zalogować się do sesji głosowania."""
+@admin_required
+def jury_deactivate(request, pk):
+    """Admin dezaktywuje sesję jury."""
+    member = get_object_or_404(JuryMember, pk=pk)
+    member.session_active = False
+    member.save()
+    return redirect('judging:jury_scanner')
+
+
+@admin_required
+def jury_deactivate_all(request):
+    """Admin dezaktywuje wszystkie sesje jury."""
+    JuryMember.objects.filter(session_active=True).update(session_active=False)
+    messages.success(request, 'Wszystkie sesje jury zostały dezaktywowane.')
+    return redirect('judging:jury_scanner')
+
+
+# ============================================================
+# Jury Voting Panel (bez logowania — token w URL)
+# ============================================================
+
+def jury_vote_panel(request, qr_token):
+    """
+    Panel głosowania jury.
+    Jury wchodzi na stronę z linku /judging/vote/<token>/.
+    Nie musi się logować — token w URL to jego identyfikacja.
+    Musi być aktywowany przez admina (session_active=True).
+    """
     member = get_object_or_404(JuryMember, qr_token=qr_token, is_active=True)
-    request.session['jury_member_id'] = member.pk
-    request.session['jury_member_name'] = member.name
-    messages.success(request, f'Zalogowano jako juror: {member.name}')
-    return redirect('judging:jury_vote_panel')
 
+    # Sprawdź czy admin aktywował sesję
+    if not member.session_active:
+        return render(request, 'judging/jury_vote_panel.html', {
+            'not_activated': True,
+            'member': member,
+        })
 
-def jury_session_required(view_func):
-    """Dekorator — wymaga aktywnej sesji jury."""
-    def wrapper(request, *args, **kwargs):
-        jury_id = request.session.get('jury_member_id')
-        if not jury_id:
-            messages.error(request, 'Brak aktywnej sesji jury. Zeskanuj kod QR.')
-            return redirect('home')
-        try:
-            request.jury_member = JuryMember.objects.get(pk=jury_id, is_active=True)
-        except JuryMember.DoesNotExist:
-            del request.session['jury_member_id']
-            messages.error(request, 'Sesja jury wygasła.')
-            return redirect('home')
-        return view_func(request, *args, **kwargs)
-    wrapper.__name__ = view_func.__name__
-    return wrapper
-
-
-# ============================================================
-# Jury Voting Panel
-# ============================================================
-
-@jury_session_required
-def jury_vote_panel(request):
-    """Panel głosowania jury — wyświetla aktualny projekt z sesji prezentacji."""
     hs = HackathonStatus.load()
     if hs.status != 'jury_review':
         return render(request, 'judging/jury_vote_panel.html', {
             'waiting': True,
             'status': hs,
-            'member': request.jury_member,
+            'member': member,
         })
 
     hackathon = hs.active_hackathon
@@ -269,20 +273,18 @@ def jury_vote_panel(request):
         return render(request, 'judging/jury_vote_panel.html', {
             'waiting': True,
             'status': hs,
-            'member': request.jury_member,
+            'member': member,
         })
 
     try:
-        session = hackathon.presentation
-        project = session.current_project
+        pres_session = hackathon.presentation
+        project = pres_session.current_project
     except PresentationSession.DoesNotExist:
         project = None
 
     existing_vote = None
     if project:
-        existing_vote = Vote.objects.filter(
-            jury_member=request.jury_member, project=project
-        ).first()
+        existing_vote = Vote.objects.filter(jury_member=member, project=project).first()
 
     if request.method == 'POST' and project:
         score_val = request.POST.get('score')
@@ -291,41 +293,48 @@ def jury_vote_panel(request):
                 score_int = int(score_val)
                 if 1 <= score_int <= 10:
                     Vote.objects.update_or_create(
-                        jury_member=request.jury_member,
+                        jury_member=member,
                         project=project,
                         defaults={'score': score_int},
                     )
                     messages.success(request, f'Ocena {score_int}/10 dla "{project.title}" zapisana!')
-                    return redirect('judging:jury_vote_panel')
+                    return redirect('judging:jury_vote_panel', qr_token=qr_token)
                 else:
                     messages.error(request, 'Ocena musi być od 1 do 10.')
             except ValueError:
                 messages.error(request, 'Nieprawidłowa ocena.')
 
     return render(request, 'judging/jury_vote_panel.html', {
+        'not_activated': False,
         'waiting': False,
-        'member': request.jury_member,
+        'member': member,
         'project': project,
         'existing_vote': existing_vote,
         'hackathon': hackathon,
     })
 
 
-def jury_current_project_api(request):
-    """API endpoint — polling aktualnego projektu."""
+def jury_current_project_api(request, qr_token):
+    """API polling — jury sprawdza aktualny projekt i czy jest aktywowany."""
+    try:
+        member = JuryMember.objects.get(qr_token=qr_token, is_active=True)
+    except (JuryMember.DoesNotExist, ValueError):
+        return JsonResponse({'error': 'invalid'}, status=404)
+
+    if not member.session_active:
+        return JsonResponse({'activated': False, 'project': None, 'status': 'waiting'})
+
     hs = HackathonStatus.load()
     if hs.status != 'jury_review' or not hs.active_hackathon:
-        return JsonResponse({'project': None, 'status': hs.status})
+        return JsonResponse({'activated': True, 'project': None, 'status': hs.status})
 
     try:
-        session = hs.active_hackathon.presentation
-        p = session.current_project
+        pres_session = hs.active_hackathon.presentation
+        p = pres_session.current_project
         if p:
-            jury_id = request.session.get('jury_member_id')
-            voted = False
-            if jury_id:
-                voted = Vote.objects.filter(jury_member_id=jury_id, project=p).exists()
+            voted = Vote.objects.filter(jury_member=member, project=p).exists()
             return JsonResponse({
+                'activated': True,
                 'project': {
                     'id': p.pk,
                     'title': p.title,
@@ -341,7 +350,7 @@ def jury_current_project_api(request):
     except PresentationSession.DoesNotExist:
         pass
 
-    return JsonResponse({'project': None, 'status': hs.status})
+    return JsonResponse({'activated': True, 'project': None, 'status': hs.status})
 
 
 # ============================================================

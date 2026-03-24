@@ -10,11 +10,21 @@
         <div id="qrcode" class="d-inline-block p-3 bg-white rounded shadow"></div>
     </div>
 
-    <p class="text-muted small">Token: <code>{{ member.qr_token }}</code></p>
+    <p class="text-muted small">
+        Pokaż ten kod adminowi, który zeskanuje go, żeby aktywować Twoją sesję głosowania.
+    </p>
 
-    <a href="{% url 'judging:jury_session_login' member.qr_token %}" class="btn btn-primary mt-3">
-        <i class="bi bi-box-arrow-in-right"></i> Zaloguj się do sesji głosowania
-    </a>
+    <div class="mt-3">
+        <a href="{% url 'judging:jury_vote_panel' member.qr_token %}" class="btn btn-primary btn-lg">
+            <i class="bi bi-hand-thumbs-up"></i> Przejdź do panelu głosowania
+        </a>
+    </div>
+
+    {% if member.session_active %}
+        <div class="alert alert-success mt-3"><i class="bi bi-check-circle"></i> Sesja aktywna</div>
+    {% else %}
+        <div class="alert alert-warning mt-3"><i class="bi bi-hourglass-split"></i> Sesja nieaktywna — poczekaj na skan admina</div>
+    {% endif %}
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>

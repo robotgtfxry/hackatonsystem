@@ -18,7 +18,8 @@
                 <th>Imię i nazwisko</th>
                 <th>Email</th>
                 <th>Status</th>
-                <th>Token QR</th>
+                <th>Sesja</th>
+                <th>Kod QR / Link</th>
                 <th>Akcje</th>
             </tr>
         </thead>
@@ -35,11 +36,18 @@
                     {% endif %}
                 </td>
                 <td>
+                    {% if m.session_active %}
+                        <span class="badge bg-primary"><i class="bi bi-wifi"></i> Zalogowany</span>
+                    {% else %}
+                        <span class="badge bg-secondary">Offline</span>
+                    {% endif %}
+                </td>
+                <td>
                     <a href="{% url 'judging:jury_qr_display' m.qr_token %}" class="btn btn-sm btn-outline-primary" target="_blank">
-                        <i class="bi bi-qr-code"></i> Pokaż QR
+                        <i class="bi bi-qr-code"></i> QR
                     </a>
-                    <a href="{% url 'judging:jury_session_login' m.qr_token %}" class="btn btn-sm btn-outline-info" title="Link sesji">
-                        <i class="bi bi-link-45deg"></i>
+                    <a href="{% url 'judging:jury_vote_panel' m.qr_token %}" class="btn btn-sm btn-outline-info" target="_blank" title="Link do głosowania">
+                        <i class="bi bi-link-45deg"></i> Głosowanie
                     </a>
                 </td>
                 <td>

@@ -1,25 +1,37 @@
 {% extends 'base.html' %}
-{% block title %}Panel Głosowania{% endblock %}
+{% block title %}Panel Głosowania — {{ member.name }}{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h2><i class="bi bi-hand-thumbs-up"></i> Panel Głosowania</h2>
-    <span class="badge bg-info fs-6">Juror: {{ member.name }}</span>
+    <span class="badge bg-info fs-6">{{ member.name }}</span>
 </div>
 
-{% if waiting %}
-    <div class="text-center py-5">
-        <div class="spinner-border text-primary mb-3" role="status"></div>
-        <h4>Oczekiwanie na rozpoczęcie sesji oceniania...</h4>
-        <p class="text-muted">Aktualny status: <strong>{{ status.get_status_display }}</strong></p>
-        <p class="text-muted">Strona odświeży się automatycznie.</p>
-    </div>
-{% elif not project %}
+{% if not_activated %}
     <div class="text-center py-5">
         <div class="spinner-border text-warning mb-3" role="status"></div>
-        <h4>Oczekiwanie na wybór projektu przez admina...</h4>
+        <h4>Oczekiwanie na aktywację przez admina...</h4>
+        <p class="text-muted">Pokaż swój kod QR administratorowi, który zeskanuje go, żeby aktywować Twoją sesję.</p>
+        <a href="{% url 'judging:jury_qr_display' member.qr_token %}" class="btn btn-outline-primary mt-2">
+            <i class="bi bi-qr-code"></i> Pokaż mój kod QR
+        </a>
+    </div>
+
+{% elif waiting %}
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary mb-3" role="status"></div>
+        <h4>Oczekiwanie na rozpoczęcie oceniania...</h4>
+        <p class="text-muted">Sesja aktywna. Aktualny status: <strong>{{ status.get_status_display }}</strong></p>
+        <p class="text-muted">Strona odświeży się automatycznie gdy admin rozpocznie ocenianie.</p>
+    </div>
+
+{% elif not project %}
+    <div class="text-center py-5">
+        <div class="spinner-border text-secondary mb-3" role="status"></div>
+        <h4>Oczekiwanie na wybór projektu...</h4>
         <p class="text-muted">Administrator wybierze projekt do oceny.</p>
     </div>
+
 {% else %}
     <div class="card mb-4">
         <div class="card-header bg-primary text-white">
@@ -52,21 +64,17 @@
                 {% csrf_token %}
                 <div class="mb-3">
                     <label class="form-label fw-bold">Ocena (1-10)</label>
-                    <div class="d-flex gap-2 flex-wrap" id="score-buttons">
-                        {% for i in "12345678910"|make_list %}
-                            {% if i == "1" %}
-                                {% with scores="1 2 3 4 5 6 7 8 9 10" %}
-                                {% for s in scores.split %}
-                                    <button type="button"
-                                            class="btn btn-lg {% if existing_vote and existing_vote.score == s|add:'0' %}btn-primary{% else %}btn-outline-primary{% endif %} score-btn"
-                                            data-score="{{ s }}"
-                                            onclick="selectScore({{ s }})">
-                                        {{ s }}
-                                    </button>
-                                {% endfor %}
-                                {% endwith %}
-                            {% endif %}
+                    <div class="d-flex gap-2 flex-wrap">
+                        {% with "1 2 3 4 5 6 7 8 9 10" as scores %}
+                        {% for s in scores.split %}
+                            <button type="button"
+                                    class="btn btn-lg score-btn {% if existing_vote.score|stringformat:'d' == s %}btn-primary{% else %}btn-outline-primary{% endif %}"
+                                    data-score="{{ s }}"
+                                    onclick="selectScore({{ s }})">
+                                {{ s }}
+                            </button>
                         {% endfor %}
+                        {% endwith %}
                     </div>
                     <input type="hidden" name="score" id="score-input" value="{{ existing_vote.score|default:'' }}">
                 </div>
@@ -86,21 +94,31 @@
             btn.classList.remove('btn-primary');
             btn.classList.add('btn-outline-primary');
         });
-        document.querySelector(`[data-score="${score}"]`).classList.remove('btn-outline-primary');
-        document.querySelector(`[data-score="${score}"]`).classList.add('btn-primary');
+        document.querySelector('[data-score="' + score + '"]').classList.remove('btn-outline-primary');
+        document.querySelector('[data-score="' + score + '"]').classList.add('btn-primary');
     }
 
-    // Polling — odświeżaj stronę gdy zmieni się projekt
-    let currentProjectId = {{ project.pk|default:'null' }};
+    // Polling co 3s — odświeża stronę gdy zmieni się projekt lub status aktywacji
+    let currentProjectId = {% if project %}{{ project.pk }}{% else %}null{% endif %};
+    let wasActivated = {% if not_activated %}false{% else %}true{% endif %};
+
     setInterval(() => {
-        fetch('{% url "judging:jury_current_project_api" %}')
+        fetch('{% url "judging:jury_current_project_api" member.qr_token %}')
             .then(r => r.json())
             .then(data => {
-                let newId = data.project ? data.project.id : null;
-                if (newId !== currentProjectId) {
+                // Jeśli właśnie aktywowano — odśwież
+                if (!wasActivated && data.activated) {
                     location.reload();
+                    return;
                 }
-                if (data.status !== 'jury_review') {
+                // Jeśli zmienił się projekt — odśwież
+                let newId = data.project ? data.project.id : null;
+                if (wasActivated && newId !== currentProjectId) {
+                    location.reload();
+                    return;
+                }
+                // Jeśli zmienił się status — odśwież
+                if (data.status === 'jury_review' && currentProjectId === null && newId !== null) {
                     location.reload();
                 }
             })
