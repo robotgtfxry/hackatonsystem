@@ -145,7 +145,15 @@ def admin_required(view_func):
 def jury_members_list(request):
     """Lista członków jury z tokenami QR."""
     members = JuryMember.objects.all().order_by('-created_at')
-    return render(request, 'judging/jury_members_list.html', {'members': members})
+    # Kto ma sparowaną sesję
+    paired_member_ids = set(
+        JurySession.objects.filter(jury_member__isnull=False)
+        .values_list('jury_member_id', flat=True)
+    )
+    return render(request, 'judging/jury_members_list.html', {
+        'members': members,
+        'paired_member_ids': paired_member_ids,
+    })
 
 
 @admin_required
@@ -493,6 +501,8 @@ def hackathon_status_manage(request):
     return render(request, 'judging/hackathon_status_manage.html', {
         'hs': hs,
         'hackathons': hackathons,
+        'jury_count': JuryMember.objects.filter(is_active=True).count(),
+        'session_count': JurySession.objects.filter(jury_member__isnull=False).count(),
     })
 
 

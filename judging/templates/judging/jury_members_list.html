@@ -22,8 +22,8 @@
             <tr>
                 <th>Imię i nazwisko</th>
                 <th>Email</th>
-                <th>Status</th>
-                <th>QR (wydruk)</th>
+                <th>Sesja</th>
+                <th>QR</th>
                 <th>Akcje</th>
             </tr>
         </thead>
@@ -33,10 +33,10 @@
                 <td>{{ m.name }}</td>
                 <td>{{ m.email }}</td>
                 <td>
-                    {% if m.is_active %}
-                        <span class="badge bg-success">Aktywny</span>
+                    {% if m.pk in paired_member_ids %}
+                        <span class="badge bg-success"><i class="bi bi-wifi"></i> Połączony</span>
                     {% else %}
-                        <span class="badge bg-secondary">Nieaktywny</span>
+                        <span class="badge bg-secondary">Brak sesji</span>
                     {% endif %}
                 </td>
                 <td>
@@ -45,12 +45,6 @@
                     </a>
                 </td>
                 <td>
-                    <form method="post" action="{% url 'judging:jury_member_toggle' m.pk %}" class="d-inline">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-sm btn-outline-warning">
-                            {% if m.is_active %}Dezaktywuj{% else %}Aktywuj{% endif %}
-                        </button>
-                    </form>
                     <form method="post" action="{% url 'judging:jury_member_delete' m.pk %}" class="d-inline" onsubmit="return confirm('Na pewno usunąć?')">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
