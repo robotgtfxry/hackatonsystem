@@ -1,60 +1,78 @@
 {% extends 'base.html' %}
-{% block title %}Skaner QR Jury{% endblock %}
+{% block title %}Skaner QR — Parowanie Jury{% endblock %}
 
 {% block content %}
-<h2><i class="bi bi-qr-code-scan"></i> Skaner QR — Aktywacja Jury</h2>
-<p class="text-muted">Zeskanuj kod QR członka jury, żeby aktywować jego sesję głosowania.</p>
+<h2><i class="bi bi-qr-code-scan"></i> Skaner QR — Parowanie Jury</h2>
+<p class="text-muted">Zeskanuj kod QR z ekranu jurora, a następnie wybierz kto to jest.</p>
 
 <div class="row">
     <div class="col-md-6">
         <div id="reader" style="width: 100%;"></div>
         <div id="scan-result" class="mt-3"></div>
 
+        <!-- Po zeskanowaniu: wybór jurora -->
+        <div id="pair-form" class="card mt-3" style="display:none;">
+            <div class="card-header bg-warning">Przypisz jurora do sesji</div>
+            <div class="card-body">
+                <p>Zeskanowany kod sesji: <code id="scanned-code"></code></p>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Który to juror?</label>
+                    <select id="member-select" class="form-select form-select-lg">
+                        <option value="">— wybierz —</option>
+                        {% for m in members %}
+                            <option value="{{ m.pk }}">{{ m.name }} ({{ m.email }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button class="btn btn-success btn-lg w-100" onclick="pairSession()">
+                    <i class="bi bi-link-45deg"></i> Sparuj
+                </button>
+            </div>
+        </div>
+
+        <!-- Ręczne wpisanie kodu -->
         <div class="card mt-3">
-            <div class="card-header">Ręczne wprowadzenie tokenu</div>
+            <div class="card-header">Ręczne wprowadzenie kodu</div>
             <div class="card-body">
                 <div class="input-group">
-                    <input type="text" id="manual-token" class="form-control" placeholder="Wklej token QR...">
-                    <button class="btn btn-primary" onclick="authenticateToken(document.getElementById('manual-token').value)">
-                        Aktywuj
+                    <input type="text" id="manual-code" class="form-control" placeholder="Wklej kod sesji...">
+                    <button class="btn btn-primary" onclick="showPairForm(document.getElementById('manual-code').value.trim())">
+                        Dalej
                     </button>
                 </div>
             </div>
         </div>
     </div>
+
     <div class="col-md-6">
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <span>Aktywne sesje jury ({{ active_members.count }})</span>
-                {% if active_members %}
-                <form method="post" action="{% url 'judging:jury_deactivate_all' %}" class="d-inline">
+                <span>Sparowane sesje</span>
+                {% if paired_sessions %}
+                <form method="post" action="{% url 'judging:jury_clear_sessions' %}">
                     {% csrf_token %}
-                    <button class="btn btn-sm btn-outline-danger">Dezaktywuj wszystkie</button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="return confirm('Wyczyścić wszystkie sesje?')">Wyczyść wszystkie</button>
                 </form>
                 {% endif %}
             </div>
-            <div class="card-body" id="active-list">
-                {% if active_members %}
-                    {% for m in active_members %}
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span><i class="bi bi-person-check text-success"></i> {{ m.name }}</span>
-                        <form method="post" action="{% url 'judging:jury_deactivate' m.pk %}" class="d-inline">
-                            {% csrf_token %}
-                            <button class="btn btn-sm btn-outline-secondary">Dezaktywuj</button>
-                        </form>
-                    </div>
-                    {% endfor %}
-                {% else %}
-                    <p class="text-muted mb-0">Brak aktywnych sesji. Zeskanuj kod QR jurora.</p>
-                {% endif %}
-            </div>
+            <ul class="list-group list-group-flush" id="paired-list">
+                {% for s in paired_sessions %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-person-check text-success"></i> {{ s.jury_member.name }}</span>
+                    <form method="post" action="{% url 'judging:jury_unpair_session' s.pk %}">
+                        {% csrf_token %}
+                        <button class="btn btn-sm btn-outline-secondary">Odłącz</button>
+                    </form>
+                </li>
+                {% empty %}
+                <li class="list-group-item text-muted">Brak sparowanych sesji. Zeskanuj kod z ekranu jurora.</li>
+                {% endfor %}
+            </ul>
         </div>
 
         <div class="card mt-3">
-            <div class="card-header">Historia skanów</div>
-            <div class="card-body">
-                <div id="scan-log"></div>
-            </div>
+            <div class="card-header">Historia</div>
+            <div class="card-body" id="scan-log"></div>
         </div>
     </div>
 </div>
@@ -62,35 +80,41 @@
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>
     const csrfToken = '{{ csrf_token }}';
-    const authUrl = '{% url "judging:jury_qr_auth" %}';
+    const pairUrl = '{% url "judging:jury_pair_session" %}';
+    let currentSessionCode = '';
 
-    function authenticateToken(token) {
-        token = token.trim();
-        if (!token) return;
+    function showPairForm(code) {
+        if (!code) return;
+        currentSessionCode = code;
+        document.getElementById('scanned-code').textContent = code;
+        document.getElementById('pair-form').style.display = 'block';
+        document.getElementById('member-select').focus();
+    }
 
-        fetch(authUrl, {
+    function pairSession() {
+        const memberId = document.getElementById('member-select').value;
+        if (!memberId) { alert('Wybierz jurora!'); return; }
+
+        fetch(pairUrl, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrfToken,
-            },
-            body: JSON.stringify({qr_token: token}),
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
+            body: JSON.stringify({session_code: currentSessionCode, member_id: parseInt(memberId)}),
         })
         .then(r => r.json())
         .then(data => {
             const log = document.getElementById('scan-log');
             const now = new Date().toLocaleTimeString('pl-PL');
             if (data.success) {
-                log.innerHTML = `<div class="alert alert-success mb-2 py-2">
-                    <strong>${now}</strong> — <i class="bi bi-check-circle"></i> Aktywowano: <strong>${data.name}</strong>
+                log.innerHTML = `<div class="alert alert-success py-2 mb-2">
+                    <strong>${now}</strong> — <i class="bi bi-check-circle"></i> Sparowano: <strong>${data.name}</strong>
                 </div>` + log.innerHTML;
+                document.getElementById('pair-form').style.display = 'none';
                 document.getElementById('scan-result').innerHTML =
-                    `<div class="alert alert-success"><i class="bi bi-check-circle"></i> Sesja aktywowana: <strong>${data.name}</strong></div>`;
-                // Odśwież listę aktywnych po 1s
-                setTimeout(() => location.reload(), 1000);
+                    `<div class="alert alert-success"><i class="bi bi-check-circle"></i> Sparowano: <strong>${data.name}</strong></div>`;
+                setTimeout(() => location.reload(), 1500);
             } else {
-                log.innerHTML = `<div class="alert alert-danger mb-2 py-2">
-                    <strong>${now}</strong> — <i class="bi bi-x-circle"></i> ${data.error}
+                log.innerHTML = `<div class="alert alert-danger py-2 mb-2">
+                    <strong>${now}</strong> — ${data.error}
                 </div>` + log.innerHTML;
                 document.getElementById('scan-result').innerHTML =
                     `<div class="alert alert-danger"><i class="bi bi-x-circle"></i> ${data.error}</div>`;
@@ -98,23 +122,24 @@
         })
         .catch(err => {
             document.getElementById('scan-result').innerHTML =
-                `<div class="alert alert-danger">Błąd połączenia: ${err}</div>`;
+                `<div class="alert alert-danger">Błąd: ${err}</div>`;
         });
     }
 
+    // Skaner QR
     const html5QrCode = new Html5Qrcode("reader");
     html5QrCode.start(
         {facingMode: "environment"},
         {fps: 10, qrbox: {width: 250, height: 250}},
         (decodedText) => {
             html5QrCode.pause(true);
-            authenticateToken(decodedText);
-            setTimeout(() => { html5QrCode.resume(); }, 3000);
+            showPairForm(decodedText.trim());
+            setTimeout(() => { html5QrCode.resume(); }, 5000);
         },
-        (errorMessage) => {}
+        () => {}
     ).catch(err => {
         document.getElementById('reader').innerHTML =
-            `<div class="alert alert-warning">Nie udało się uruchomić kamery. Użyj ręcznego wprowadzania tokenu.<br><small>${err}</small></div>`;
+            `<div class="alert alert-warning">Kamera niedostępna. Użyj ręcznego wprowadzania.<br><small>${err}</small></div>`;
     });
 </script>
 {% endblock %}

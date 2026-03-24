@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}Jury — Oczekiwanie{% endblock %}
+
+{% block content %}
+<div class="text-center py-5">
+    <h2><i class="bi bi-qr-code"></i> Panel Jury</h2>
+    <p class="lead">Pokaż poniższy kod QR administratorowi, który zeskanuje go i przypisze Cię do sesji.</p>
+
+    <div class="my-4">
+        <div id="qrcode" class="d-inline-block p-4 bg-white rounded shadow"></div>
+    </div>
+
+    <div class="spinner-border text-primary mt-3" role="status"></div>
+    <p class="text-muted mt-2">Oczekiwanie na skan admina...</p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script>
+    new QRCode(document.getElementById("qrcode"), {
+        text: "{{ jury_session.code }}",
+        width: 280,
+        height: 280,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+    });
+
+    // Polling — sprawdzaj co 2s czy admin sparował sesję
+    setInterval(() => {
+        fetch('{% url "judging:jury_check_session_api" %}')
+            .then(r => r.json())
+            .then(data => {
+                if (data.paired) {
+                    location.reload();
+                }
+            })
+            .catch(() => {});
+    }, 2000);
+</script>
+{% endblock %}

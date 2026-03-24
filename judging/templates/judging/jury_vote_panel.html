@@ -7,22 +7,11 @@
     <span class="badge bg-info fs-6">{{ member.name }}</span>
 </div>
 
-{% if not_activated %}
-    <div class="text-center py-5">
-        <div class="spinner-border text-warning mb-3" role="status"></div>
-        <h4>Oczekiwanie na aktywację przez admina...</h4>
-        <p class="text-muted">Pokaż swój kod QR administratorowi, który zeskanuje go, żeby aktywować Twoją sesję.</p>
-        <a href="{% url 'judging:jury_qr_display' member.qr_token %}" class="btn btn-outline-primary mt-2">
-            <i class="bi bi-qr-code"></i> Pokaż mój kod QR
-        </a>
-    </div>
-
-{% elif waiting %}
+{% if waiting %}
     <div class="text-center py-5">
         <div class="spinner-border text-primary mb-3" role="status"></div>
         <h4>Oczekiwanie na rozpoczęcie oceniania...</h4>
-        <p class="text-muted">Sesja aktywna. Aktualny status: <strong>{{ status.get_status_display }}</strong></p>
-        <p class="text-muted">Strona odświeży się automatycznie gdy admin rozpocznie ocenianie.</p>
+        <p class="text-muted">Sesja aktywna. Status: <strong>{{ status.get_status_display }}</strong></p>
     </div>
 
 {% elif not project %}
@@ -42,7 +31,7 @@
             <p><strong>Opis:</strong> {{ project.description }}</p>
             <p><strong>Technologie:</strong> {{ project.technologies }}</p>
             {% if project.repo_url %}
-                <p><strong>Repozytorium:</strong> <a href="{{ project.repo_url }}" target="_blank">{{ project.repo_url }}</a></p>
+                <p><strong>Repo:</strong> <a href="{{ project.repo_url }}" target="_blank">{{ project.repo_url }}</a></p>
             {% endif %}
             {% if project.demo_url %}
                 <p><strong>Demo:</strong> <a href="{{ project.demo_url }}" target="_blank">{{ project.demo_url }}</a></p>
@@ -52,8 +41,8 @@
 
     {% if existing_vote %}
         <div class="alert alert-success">
-            <i class="bi bi-check-circle"></i> Już oceniłeś ten projekt: <strong>{{ existing_vote.score }}/10</strong>
-            <p class="mb-0 mt-1 text-muted">Możesz zmienić ocenę poniżej.</p>
+            <i class="bi bi-check-circle"></i> Twoja ocena: <strong>{{ existing_vote.score }}/10</strong>
+            — możesz zmienić poniżej.
         </div>
     {% endif %}
 
@@ -98,29 +87,15 @@
         document.querySelector('[data-score="' + score + '"]').classList.add('btn-primary');
     }
 
-    // Polling co 3s — odświeża stronę gdy zmieni się projekt lub status aktywacji
+    // Polling — odświeżaj gdy zmieni się projekt
     let currentProjectId = {% if project %}{{ project.pk }}{% else %}null{% endif %};
-    let wasActivated = {% if not_activated %}false{% else %}true{% endif %};
-
     setInterval(() => {
-        fetch('{% url "judging:jury_current_project_api" member.qr_token %}')
+        fetch('{% url "judging:jury_check_session_api" %}')
             .then(r => r.json())
             .then(data => {
-                // Jeśli właśnie aktywowano — odśwież
-                if (!wasActivated && data.activated) {
-                    location.reload();
-                    return;
-                }
-                // Jeśli zmienił się projekt — odśwież
+                if (!data.paired) { location.reload(); return; }
                 let newId = data.project ? data.project.id : null;
-                if (wasActivated && newId !== currentProjectId) {
-                    location.reload();
-                    return;
-                }
-                // Jeśli zmienił się status — odśwież
-                if (data.status === 'jury_review' && currentProjectId === null && newId !== null) {
-                    location.reload();
-                }
+                if (newId !== currentProjectId) { location.reload(); }
             })
             .catch(() => {});
     }, 3000);

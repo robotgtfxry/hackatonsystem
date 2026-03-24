@@ -15,7 +15,8 @@
       "Bash(py manage.py makemigrations)",
       "Bash(py manage.py migrate)",
       "Bash(python manage.py makemigrations)",
-      "Bash(python3 manage.py makemigrations)"
+      "Bash(python3 manage.py makemigrations)",
+      "Bash(py manage.py check)"
     ]
   }
 }

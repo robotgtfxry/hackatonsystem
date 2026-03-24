@@ -50,12 +50,11 @@ class Score(models.Model):
 
 
 class JuryMember(models.Model):
-    """Członek jury z tokenem QR do autoryzacji sesyjnej."""
+    """Członek jury — admin dodaje, identyfikowany po QR."""
     name = models.CharField(max_length=200, verbose_name='Imię i nazwisko')
     email = models.EmailField(unique=True, verbose_name='Email')
     qr_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, verbose_name='Token QR')
     is_active = models.BooleanField(default=True, verbose_name='Aktywny')
-    session_active = models.BooleanField(default=False, verbose_name='Sesja aktywna')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -64,6 +63,24 @@ class JuryMember(models.Model):
     class Meta:
         verbose_name = 'Członek jury (QR)'
         verbose_name_plural = 'Członkowie jury (QR)'
+
+
+class JurySession(models.Model):
+    """
+    Sesja parowania: juror otwiera /judging/vote/ → dostaje kod sesji (QR na ekranie).
+    Admin skanuje ten QR i przypisuje do konkretnego JuryMember.
+    """
+    code = models.UUIDField(default=uuid.uuid4, unique=True)
+    jury_member = models.ForeignKey(
+        JuryMember, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='sessions', verbose_name='Przypisany juror'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        if self.jury_member:
+            return f"Sesja: {self.jury_member.name}"
+        return f"Sesja (nieparowana): {self.code}"
 
 
 class Vote(models.Model):
