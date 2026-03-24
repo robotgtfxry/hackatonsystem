@@ -5,6 +5,7 @@ from django.utils import timezone
 from .models import Project, ProjectFile
 from .forms import ProjectForm, ProjectFileForm
 from teams.models import Team, TeamMember
+from hackathon.models import HackathonStatus
 
 
 @login_required
@@ -31,6 +32,11 @@ def project_submit(request, team_pk):
 
     if not team.members.filter(user=request.user).exists():
         messages.error(request, 'Nie jesteś członkiem tego zespołu.')
+        return redirect('teams:detail', pk=team_pk)
+
+    hs = HackathonStatus.load()
+    if hs.status != 'in_progress':
+        messages.error(request, 'Zgłoszenia są zamknięte. Aktualny status: ' + hs.get_status_display())
         return redirect('teams:detail', pk=team_pk)
 
     if hasattr(team, 'project'):

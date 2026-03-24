@@ -1,11 +1,13 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.db.models import Sum, F, FloatField
+from django.db.models import Sum, F, FloatField, Avg
 from django.db.models.functions import Coalesce
-from .models import JuryAssignment, Score, Criterion
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+from .models import JuryAssignment, Score, Criterion, JuryMember, Vote
 from .forms import ScoreForm
-from hackathon.models import Hackathon
+from hackathon.models import Hackathon, HackathonStatus, PresentationSession
 from projects.models import Project
 
 
@@ -121,4 +123,354 @@ def results(request, hackathon_pk):
         'hackathon': hackathon,
         'rankings': rankings,
         'criteria': criteria,
+    })
+
+
+# ============================================================
+# Jury Member Management (admin)
+# ============================================================
+
+def admin_required(view_func):
+    @login_required
+    def wrapper(request, *args, **kwargs):
+        if not hasattr(request.user, 'profile') or not request.user.profile.is_admin:
+            messages.error(request, 'Brak uprawnień administratora.')
+            return redirect('accounts:dashboard')
+        return view_func(request, *args, **kwargs)
+    wrapper.__name__ = view_func.__name__
+    return wrapper
+
+
+@admin_required
+def jury_members_list(request):
+    """Lista członków jury z tokenami QR."""
+    members = JuryMember.objects.all().order_by('-created_at')
+    return render(request, 'judging/jury_members_list.html', {'members': members})
+
+
+@admin_required
+def jury_members_add(request):
+    """Dodaj wielu członków jury naraz."""
+    if request.method == 'POST':
+        entries = request.POST.get('entries', '').strip()
+        count = 0
+        for line in entries.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            parts = [p.strip() for p in line.split(',')]
+            if len(parts) >= 2:
+                name, email = parts[0], parts[1]
+                if not JuryMember.objects.filter(email=email).exists():
+                    JuryMember.objects.create(name=name, email=email)
+                    count += 1
+        messages.success(request, f'Dodano {count} członków jury.')
+        return redirect('judging:jury_members_list')
+    return render(request, 'judging/jury_members_add.html')
+
+
+@admin_required
+def jury_member_delete(request, pk):
+    member = get_object_or_404(JuryMember, pk=pk)
+    if request.method == 'POST':
+        member.delete()
+        messages.success(request, f'Usunięto: {member.name}')
+    return redirect('judging:jury_members_list')
+
+
+@admin_required
+def jury_member_toggle(request, pk):
+    member = get_object_or_404(JuryMember, pk=pk)
+    member.is_active = not member.is_active
+    member.save()
+    return redirect('judging:jury_members_list')
+
+
+# ============================================================
+# QR Code Display & Auth
+# ============================================================
+
+def jury_qr_display(request, qr_token):
+    """Strona wyświetlająca kod QR członka jury."""
+    member = get_object_or_404(JuryMember, qr_token=qr_token)
+    return render(request, 'judging/jury_qr_display.html', {'member': member})
+
+
+@admin_required
+def jury_scanner(request):
+    """Panel admina ze skanerem QR."""
+    return render(request, 'judging/jury_scanner.html')
+
+
+@require_POST
+def jury_qr_auth(request):
+    """Endpoint autoryzacji QR — admin skanuje kod, system tworzy sesję jury."""
+    import json
+    try:
+        data = json.loads(request.body)
+        token = data.get('qr_token', '')
+    except (json.JSONDecodeError, AttributeError):
+        token = request.POST.get('qr_token', '')
+
+    try:
+        member = JuryMember.objects.get(qr_token=token, is_active=True)
+    except (JuryMember.DoesNotExist, ValueError):
+        return JsonResponse({'success': False, 'error': 'Nieprawidłowy lub nieaktywny token.'}, status=400)
+
+    request.session['jury_member_id'] = member.pk
+    request.session['jury_member_name'] = member.name
+    return JsonResponse({'success': True, 'name': member.name, 'id': member.pk})
+
+
+def jury_session_login(request, qr_token):
+    """Jury member odwiedza ten URL żeby zalogować się do sesji głosowania."""
+    member = get_object_or_404(JuryMember, qr_token=qr_token, is_active=True)
+    request.session['jury_member_id'] = member.pk
+    request.session['jury_member_name'] = member.name
+    messages.success(request, f'Zalogowano jako juror: {member.name}')
+    return redirect('judging:jury_vote_panel')
+
+
+def jury_session_required(view_func):
+    """Dekorator — wymaga aktywnej sesji jury."""
+    def wrapper(request, *args, **kwargs):
+        jury_id = request.session.get('jury_member_id')
+        if not jury_id:
+            messages.error(request, 'Brak aktywnej sesji jury. Zeskanuj kod QR.')
+            return redirect('home')
+        try:
+            request.jury_member = JuryMember.objects.get(pk=jury_id, is_active=True)
+        except JuryMember.DoesNotExist:
+            del request.session['jury_member_id']
+            messages.error(request, 'Sesja jury wygasła.')
+            return redirect('home')
+        return view_func(request, *args, **kwargs)
+    wrapper.__name__ = view_func.__name__
+    return wrapper
+
+
+# ============================================================
+# Jury Voting Panel
+# ============================================================
+
+@jury_session_required
+def jury_vote_panel(request):
+    """Panel głosowania jury — wyświetla aktualny projekt z sesji prezentacji."""
+    hs = HackathonStatus.load()
+    if hs.status != 'jury_review':
+        return render(request, 'judging/jury_vote_panel.html', {
+            'waiting': True,
+            'status': hs,
+            'member': request.jury_member,
+        })
+
+    hackathon = hs.active_hackathon
+    if not hackathon:
+        return render(request, 'judging/jury_vote_panel.html', {
+            'waiting': True,
+            'status': hs,
+            'member': request.jury_member,
+        })
+
+    try:
+        session = hackathon.presentation
+        project = session.current_project
+    except PresentationSession.DoesNotExist:
+        project = None
+
+    existing_vote = None
+    if project:
+        existing_vote = Vote.objects.filter(
+            jury_member=request.jury_member, project=project
+        ).first()
+
+    if request.method == 'POST' and project:
+        score_val = request.POST.get('score')
+        if score_val:
+            try:
+                score_int = int(score_val)
+                if 1 <= score_int <= 10:
+                    Vote.objects.update_or_create(
+                        jury_member=request.jury_member,
+                        project=project,
+                        defaults={'score': score_int},
+                    )
+                    messages.success(request, f'Ocena {score_int}/10 dla "{project.title}" zapisana!')
+                    return redirect('judging:jury_vote_panel')
+                else:
+                    messages.error(request, 'Ocena musi być od 1 do 10.')
+            except ValueError:
+                messages.error(request, 'Nieprawidłowa ocena.')
+
+    return render(request, 'judging/jury_vote_panel.html', {
+        'waiting': False,
+        'member': request.jury_member,
+        'project': project,
+        'existing_vote': existing_vote,
+        'hackathon': hackathon,
+    })
+
+
+def jury_current_project_api(request):
+    """API endpoint — polling aktualnego projektu."""
+    hs = HackathonStatus.load()
+    if hs.status != 'jury_review' or not hs.active_hackathon:
+        return JsonResponse({'project': None, 'status': hs.status})
+
+    try:
+        session = hs.active_hackathon.presentation
+        p = session.current_project
+        if p:
+            jury_id = request.session.get('jury_member_id')
+            voted = False
+            if jury_id:
+                voted = Vote.objects.filter(jury_member_id=jury_id, project=p).exists()
+            return JsonResponse({
+                'project': {
+                    'id': p.pk,
+                    'title': p.title,
+                    'description': p.description,
+                    'technologies': p.technologies,
+                    'team': p.team.name,
+                    'repo_url': p.repo_url,
+                    'demo_url': p.demo_url,
+                },
+                'status': hs.status,
+                'voted': voted,
+            })
+    except PresentationSession.DoesNotExist:
+        pass
+
+    return JsonResponse({'project': None, 'status': hs.status})
+
+
+# ============================================================
+# Admin: Presentation Mode
+# ============================================================
+
+@admin_required
+def presentation_panel(request, hackathon_pk):
+    """Panel prezentacji — admin kontroluje aktualny projekt."""
+    hackathon = get_object_or_404(Hackathon, pk=hackathon_pk)
+    projects = list(
+        Project.objects.filter(team__hackathon=hackathon, status='submitted')
+        .select_related('team')
+        .order_by('pk')
+    )
+
+    session, created = PresentationSession.objects.get_or_create(
+        hackathon=hackathon,
+        defaults={
+            'project_order': [p.pk for p in projects],
+            'current_index': 0,
+        }
+    )
+
+    if created or not session.project_order:
+        session.project_order = [p.pk for p in projects]
+        if projects:
+            session.current_project = projects[0]
+        session.save()
+
+    # Statystyki głosów
+    votes_summary = {}
+    for p in projects:
+        agg = Vote.objects.filter(project=p).aggregate(
+            avg=Avg('score'), count=Sum('score', default=0)
+        )
+        votes_summary[p.pk] = {
+            'avg': round(agg['avg'] or 0, 2),
+            'votes_count': Vote.objects.filter(project=p).count(),
+        }
+
+    return render(request, 'judging/presentation_panel.html', {
+        'hackathon': hackathon,
+        'session': session,
+        'projects': projects,
+        'votes_summary': votes_summary,
+    })
+
+
+@admin_required
+def presentation_next(request, hackathon_pk):
+    """Przejdź do następnego projektu."""
+    hackathon = get_object_or_404(Hackathon, pk=hackathon_pk)
+    session = get_object_or_404(PresentationSession, hackathon=hackathon)
+
+    if session.project_order:
+        session.current_index = min(session.current_index + 1, len(session.project_order) - 1)
+        project_id = session.project_order[session.current_index]
+        session.current_project = Project.objects.filter(pk=project_id).first()
+        session.save()
+
+    return redirect('judging:presentation_panel', hackathon_pk=hackathon_pk)
+
+
+@admin_required
+def presentation_prev(request, hackathon_pk):
+    """Wróć do poprzedniego projektu."""
+    hackathon = get_object_or_404(Hackathon, pk=hackathon_pk)
+    session = get_object_or_404(PresentationSession, hackathon=hackathon)
+
+    if session.project_order:
+        session.current_index = max(session.current_index - 1, 0)
+        project_id = session.project_order[session.current_index]
+        session.current_project = Project.objects.filter(pk=project_id).first()
+        session.save()
+
+    return redirect('judging:presentation_panel', hackathon_pk=hackathon_pk)
+
+
+@admin_required
+def presentation_set_project(request, hackathon_pk, project_pk):
+    """Ustaw konkretny projekt jako aktualny."""
+    hackathon = get_object_or_404(Hackathon, pk=hackathon_pk)
+    session = get_object_or_404(PresentationSession, hackathon=hackathon)
+    project = get_object_or_404(Project, pk=project_pk)
+
+    session.current_project = project
+    if project_pk in session.project_order:
+        session.current_index = session.project_order.index(project_pk)
+    session.save()
+
+    return redirect('judging:presentation_panel', hackathon_pk=hackathon_pk)
+
+
+# ============================================================
+# Admin: Global Hackathon Status
+# ============================================================
+
+@admin_required
+def hackathon_status_manage(request):
+    """Zarządzanie globalnym statusem hackatonu."""
+    hs = HackathonStatus.load()
+    hackathons = Hackathon.objects.all()
+
+    if request.method == 'POST':
+        new_status = request.POST.get('status')
+        hackathon_id = request.POST.get('active_hackathon')
+
+        if new_status in dict(HackathonStatus.STATUS_CHOICES):
+            hs.status = new_status
+        if hackathon_id:
+            hs.active_hackathon_id = int(hackathon_id)
+        else:
+            hs.active_hackathon = None
+        hs.save()
+        messages.success(request, f'Status zmieniony na: {hs.get_status_display()}')
+        return redirect('judging:hackathon_status_manage')
+
+    return render(request, 'judging/hackathon_status_manage.html', {
+        'hs': hs,
+        'hackathons': hackathons,
+    })
+
+
+def hackathon_status_api(request):
+    """Publiczny endpoint — aktualny status hackatonu."""
+    hs = HackathonStatus.load()
+    return JsonResponse({
+        'status': hs.status,
+        'status_display': hs.get_status_display(),
+        'active_hackathon': hs.active_hackathon.name if hs.active_hackathon else None,
     })

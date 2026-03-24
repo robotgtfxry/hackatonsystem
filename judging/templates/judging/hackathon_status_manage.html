@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{% block title %}Status Hackatonu{% endblock %}
+
+{% block content %}
+<h2><i class="bi bi-toggles"></i> Globalny Status Hackatonu</h2>
+
+<div class="card mb-4">
+    <div class="card-header">Aktualny status</div>
+    <div class="card-body">
+        <span class="badge fs-5
+            {% if hs.status == 'in_progress' %}bg-success
+            {% elif hs.status == 'submissions_closed' %}bg-warning text-dark
+            {% elif hs.status == 'jury_review' %}bg-primary
+            {% elif hs.status == 'results_announced' %}bg-info
+            {% endif %}">
+            {{ hs.get_status_display }}
+        </span>
+        {% if hs.active_hackathon %}
+            <span class="ms-3 text-muted">Hackathon: <strong>{{ hs.active_hackathon.name }}</strong></span>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">Zmień status</div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label for="status" class="form-label">Status globalny</label>
+                <select name="status" id="status" class="form-select">
+                    {% for value, label in hs.STATUS_CHOICES %}
+                        <option value="{{ value }}" {% if hs.status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="mb-3">
+                <label for="active_hackathon" class="form-label">Aktywny hackathon</label>
+                <select name="active_hackathon" id="active_hackathon" class="form-select">
+                    <option value="">— brak —</option>
+                    {% for h in hackathons %}
+                        <option value="{{ h.pk }}" {% if hs.active_hackathon_id == h.pk %}selected{% endif %}>{{ h.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Zapisz</button>
+        </form>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header">Informacja</div>
+    <div class="card-body">
+        <ul class="mb-0">
+            <li><strong>W trakcie</strong> — uczestnicy mogą zgłaszać projekty</li>
+            <li><strong>Zgłoszenia zamknięte</strong> — blokada nowych zgłoszeń</li>
+            <li><strong>Ocenianie jury</strong> — aktywny system głosowania QR</li>
+            <li><strong>Wyniki ogłoszone</strong> — widoczne wyniki</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}Dodaj członków jury{% endblock %}
+
+{% block content %}
+<h2><i class="bi bi-person-plus"></i> Dodaj członków jury</h2>
+<p class="text-muted">Wpisz po jednym członku na linię w formacie: <code>Imię Nazwisko, email@example.com</code></p>
+
+<form method="post">
+    {% csrf_token %}
+    <div class="mb-3">
+        <label for="entries" class="form-label">Lista członków jury</label>
+        <textarea name="entries" id="entries" class="form-control" rows="10"
+                  placeholder="Jan Kowalski, jan@example.com&#10;Anna Nowak, anna@example.com&#10;Piotr Wiśniewski, piotr@example.com"></textarea>
+    </div>
+    <button type="submit" class="btn btn-success"><i class="bi bi-check-lg"></i> Dodaj wszystkich</button>
+    <a href="{% url 'judging:jury_members_list' %}" class="btn btn-secondary">Anuluj</a>
+</form>
+{% endblock %}

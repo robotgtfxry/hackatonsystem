@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+{% block title %}Panel Prezentacji — {{ hackathon.name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-easel"></i> Panel Prezentacji</h2>
+    <span class="badge bg-dark fs-6">{{ hackathon.name }}</span>
+</div>
+
+{% if session.current_project %}
+<div class="card mb-4 border-primary">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+        <h3 class="mb-0"><i class="bi bi-folder-fill"></i> {{ session.current_project.title }}</h3>
+        <span class="badge bg-light text-dark fs-6">Projekt {{ session.current_index|add:1 }} / {{ session.project_order|length }}</span>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-8">
+                <p><strong>Zespół:</strong> {{ session.current_project.team.name }}</p>
+                <p><strong>Opis:</strong> {{ session.current_project.description }}</p>
+                <p><strong>Technologie:</strong> {{ session.current_project.technologies }}</p>
+                {% if session.current_project.repo_url %}
+                    <p><strong>Repozytorium:</strong> <a href="{{ session.current_project.repo_url }}" target="_blank">{{ session.current_project.repo_url }}</a></p>
+                {% endif %}
+                {% if session.current_project.demo_url %}
+                    <p><strong>Demo:</strong> <a href="{{ session.current_project.demo_url }}" target="_blank">{{ session.current_project.demo_url }}</a></p>
+                {% endif %}
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-light">
+                    <div class="card-body text-center">
+                        <h5>Głosy</h5>
+                        {% with vs=votes_summary %}
+                            {% for pid, info in vs.items %}
+                                {% if pid == session.current_project.pk %}
+                                    <p class="display-4 mb-0">{{ info.avg }}</p>
+                                    <p class="text-muted">średnia ({{ info.votes_count }} głosów)</p>
+                                {% endif %}
+                            {% endfor %}
+                        {% endwith %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card-footer d-flex justify-content-between">
+        {% if session.current_index > 0 %}
+            <a href="{% url 'judging:presentation_prev' hackathon.pk %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Poprzedni
+            </a>
+        {% else %}
+            <span></span>
+        {% endif %}
+
+        {% if session.current_index < session.project_order|length|add:"-1" %}
+            <a href="{% url 'judging:presentation_next' hackathon.pk %}" class="btn btn-primary btn-lg">
+                Następny <i class="bi bi-arrow-right"></i>
+            </a>
+        {% else %}
+            <span class="badge bg-success fs-6 align-self-center">Ostatni projekt</span>
+        {% endif %}
+    </div>
+</div>
+{% else %}
+    <div class="alert alert-warning">Brak projektów do prezentacji. Upewnij się, że projekty są zgłoszone.</div>
+{% endif %}
+
+<h4 class="mt-4">Wszystkie projekty</h4>
+<div class="table-responsive">
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Tytuł</th>
+                <th>Zespół</th>
+                <th>Śr. ocena</th>
+                <th>Głosy</th>
+                <th>Akcja</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in projects %}
+            <tr class="{% if session.current_project and p.pk == session.current_project.pk %}table-primary{% endif %}">
+                <td>{{ forloop.counter }}</td>
+                <td>{{ p.title }}</td>
+                <td>{{ p.team.name }}</td>
+                <td>
+                    {% for pid, info in votes_summary.items %}
+                        {% if pid == p.pk %}{{ info.avg }}{% endif %}
+                    {% endfor %}
+                </td>
+                <td>
+                    {% for pid, info in votes_summary.items %}
+                        {% if pid == p.pk %}{{ info.votes_count }}{% endif %}
+                    {% endfor %}
+                </td>
+                <td>
+                    <a href="{% url 'judging:presentation_set_project' hackathon.pk p.pk %}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-eye"></i> Pokaż
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+    // Auto-odświeżanie głosów co 5 sekund
+    setInterval(() => { location.reload(); }, 10000);
+</script>
+{% endblock %}

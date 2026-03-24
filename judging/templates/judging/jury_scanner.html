@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% block title %}Skaner QR Jury{% endblock %}
+
+{% block content %}
+<h2><i class="bi bi-qr-code-scan"></i> Skaner QR — Autoryzacja Jury</h2>
+<p class="text-muted">Zeskanuj kod QR członka jury, aby rozpocząć jego sesję.</p>
+
+<div class="row">
+    <div class="col-md-6">
+        <div id="reader" style="width: 100%;"></div>
+        <div id="scan-result" class="mt-3"></div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">Ostatnie skanowania</div>
+            <div class="card-body">
+                <div id="scan-log"></div>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header">Ręczne wprowadzenie tokenu</div>
+            <div class="card-body">
+                <div class="input-group">
+                    <input type="text" id="manual-token" class="form-control" placeholder="Wklej token QR...">
+                    <button class="btn btn-primary" onclick="authenticateToken(document.getElementById('manual-token').value)">
+                        Autoryzuj
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+    const csrfToken = '{{ csrf_token }}';
+    const authUrl = '{% url "judging:jury_qr_auth" %}';
+
+    function authenticateToken(token) {
+        token = token.trim();
+        if (!token) return;
+
+        fetch(authUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+            },
+            body: JSON.stringify({qr_token: token}),
+        })
+        .then(r => r.json())
+        .then(data => {
+            const log = document.getElementById('scan-log');
+            const now = new Date().toLocaleTimeString('pl-PL');
+            if (data.success) {
+                log.innerHTML = `<div class="alert alert-success mb-2">
+                    <strong>${now}</strong> — ${data.name} — <span class="badge bg-success">OK</span>
+                </div>` + log.innerHTML;
+                document.getElementById('scan-result').innerHTML =
+                    `<div class="alert alert-success"><i class="bi bi-check-circle"></i> Autoryzowano: <strong>${data.name}</strong></div>`;
+            } else {
+                log.innerHTML = `<div class="alert alert-danger mb-2">
+                    <strong>${now}</strong> — Błąd: ${data.error}
+                </div>` + log.innerHTML;
+                document.getElementById('scan-result').innerHTML =
+                    `<div class="alert alert-danger"><i class="bi bi-x-circle"></i> ${data.error}</div>`;
+            }
+        })
+        .catch(err => {
+            document.getElementById('scan-result').innerHTML =
+                `<div class="alert alert-danger">Błąd połączenia: ${err}</div>`;
+        });
+    }
+
+    const html5QrCode = new Html5Qrcode("reader");
+    html5QrCode.start(
+        {facingMode: "environment"},
+        {fps: 10, qrbox: {width: 250, height: 250}},
+        (decodedText) => {
+            html5QrCode.pause(true);
+            authenticateToken(decodedText);
+            setTimeout(() => { html5QrCode.resume(); }, 3000);
+        },
+        (errorMessage) => {}
+    ).catch(err => {
+        document.getElementById('reader').innerHTML =
+            `<div class="alert alert-warning">Nie udało się uruchomić kamery. Użyj ręcznego wprowadzania tokenu.<br><small>${err}</small></div>`;
+    });
+</script>
+{% endblock %}

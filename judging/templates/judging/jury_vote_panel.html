@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+{% block title %}Panel Głosowania{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2><i class="bi bi-hand-thumbs-up"></i> Panel Głosowania</h2>
+    <span class="badge bg-info fs-6">Juror: {{ member.name }}</span>
+</div>
+
+{% if waiting %}
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary mb-3" role="status"></div>
+        <h4>Oczekiwanie na rozpoczęcie sesji oceniania...</h4>
+        <p class="text-muted">Aktualny status: <strong>{{ status.get_status_display }}</strong></p>
+        <p class="text-muted">Strona odświeży się automatycznie.</p>
+    </div>
+{% elif not project %}
+    <div class="text-center py-5">
+        <div class="spinner-border text-warning mb-3" role="status"></div>
+        <h4>Oczekiwanie na wybór projektu przez admina...</h4>
+        <p class="text-muted">Administrator wybierze projekt do oceny.</p>
+    </div>
+{% else %}
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0"><i class="bi bi-folder"></i> {{ project.title }}</h4>
+        </div>
+        <div class="card-body">
+            <p><strong>Zespół:</strong> {{ project.team.name }}</p>
+            <p><strong>Opis:</strong> {{ project.description }}</p>
+            <p><strong>Technologie:</strong> {{ project.technologies }}</p>
+            {% if project.repo_url %}
+                <p><strong>Repozytorium:</strong> <a href="{{ project.repo_url }}" target="_blank">{{ project.repo_url }}</a></p>
+            {% endif %}
+            {% if project.demo_url %}
+                <p><strong>Demo:</strong> <a href="{{ project.demo_url }}" target="_blank">{{ project.demo_url }}</a></p>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if existing_vote %}
+        <div class="alert alert-success">
+            <i class="bi bi-check-circle"></i> Już oceniłeś ten projekt: <strong>{{ existing_vote.score }}/10</strong>
+            <p class="mb-0 mt-1 text-muted">Możesz zmienić ocenę poniżej.</p>
+        </div>
+    {% endif %}
+
+    <div class="card">
+        <div class="card-header">Twoja ocena</div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Ocena (1-10)</label>
+                    <div class="d-flex gap-2 flex-wrap" id="score-buttons">
+                        {% for i in "12345678910"|make_list %}
+                            {% if i == "1" %}
+                                {% with scores="1 2 3 4 5 6 7 8 9 10" %}
+                                {% for s in scores.split %}
+                                    <button type="button"
+                                            class="btn btn-lg {% if existing_vote and existing_vote.score == s|add:'0' %}btn-primary{% else %}btn-outline-primary{% endif %} score-btn"
+                                            data-score="{{ s }}"
+                                            onclick="selectScore({{ s }})">
+                                        {{ s }}
+                                    </button>
+                                {% endfor %}
+                                {% endwith %}
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    <input type="hidden" name="score" id="score-input" value="{{ existing_vote.score|default:'' }}">
+                </div>
+                <button type="submit" class="btn btn-success btn-lg" id="submit-btn" {% if not existing_vote %}disabled{% endif %}>
+                    <i class="bi bi-send"></i> {% if existing_vote %}Zmień ocenę{% else %}Wyślij ocenę{% endif %}
+                </button>
+            </form>
+        </div>
+    </div>
+{% endif %}
+
+<script>
+    function selectScore(score) {
+        document.getElementById('score-input').value = score;
+        document.getElementById('submit-btn').disabled = false;
+        document.querySelectorAll('.score-btn').forEach(btn => {
+            btn.classList.remove('btn-primary');
+            btn.classList.add('btn-outline-primary');
+        });
+        document.querySelector(`[data-score="${score}"]`).classList.remove('btn-outline-primary');
+        document.querySelector(`[data-score="${score}"]`).classList.add('btn-primary');
+    }
+
+    // Polling — odświeżaj stronę gdy zmieni się projekt
+    let currentProjectId = {{ project.pk|default:'null' }};
+    setInterval(() => {
+        fetch('{% url "judging:jury_current_project_api" %}')
+            .then(r => r.json())
+            .then(data => {
+                let newId = data.project ? data.project.id : null;
+                if (newId !== currentProjectId) {
+                    location.reload();
+                }
+                if (data.status !== 'jury_review') {
+                    location.reload();
+                }
+            })
+            .catch(() => {});
+    }, 3000);
+</script>
+{% endblock %}

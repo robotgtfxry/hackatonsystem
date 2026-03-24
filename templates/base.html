@@ -39,6 +39,12 @@
                             <li class="nav-item">
                                 <a class="nav-link" href="{% url 'hackathon:admin_panel' %}">Panel Admina</a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'judging:jury_members_list' %}">Jury QR</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'judging:hackathon_status_manage' %}">Status</a>
+                            </li>
                         {% endif %}
                     {% endif %}
                 </ul>

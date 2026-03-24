@@ -1,3 +1,4 @@
+import uuid
 from django.db import models
 from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator
@@ -46,3 +47,35 @@ class Score(models.Model):
 
     class Meta:
         unique_together = ['jury', 'project', 'criterion']
+
+
+class JuryMember(models.Model):
+    """Członek jury z tokenem QR do autoryzacji sesyjnej."""
+    name = models.CharField(max_length=200, verbose_name='Imię i nazwisko')
+    email = models.EmailField(unique=True, verbose_name='Email')
+    qr_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, verbose_name='Token QR')
+    is_active = models.BooleanField(default=True, verbose_name='Aktywny')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        verbose_name = 'Członek jury (QR)'
+        verbose_name_plural = 'Członkowie jury (QR)'
+
+
+class Vote(models.Model):
+    """Głos jury na projekt (jeden głos na projekt na członka jury)."""
+    jury_member = models.ForeignKey(JuryMember, on_delete=models.CASCADE, related_name='votes')
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='votes')
+    score = models.PositiveIntegerField(verbose_name='Ocena')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['jury_member', 'project']
+        verbose_name = 'Głos'
+        verbose_name_plural = 'Głosy'
+
+    def __str__(self):
+        return f"{self.jury_member.name} -> {self.project.title}: {self.score}"

@@ -13,7 +13,9 @@
       "Bash(do py:*)",
       "Bash(done)",
       "Bash(py manage.py makemigrations)",
-      "Bash(py manage.py migrate)"
+      "Bash(py manage.py migrate)",
+      "Bash(python manage.py makemigrations)",
+      "Bash(python3 manage.py makemigrations)"
     ]
   }
 }
