@@ -16,7 +16,7 @@ urlpatterns = [
     path('hackathon/', include('hackathon.urls')),
     path('teams/', include('teams.urls')),
     path('projects/', include('projects.urls')),
-    path('judging/', include('judging.urls')),
+    path('jury/', include('judging.urls')),
 ]
 
 if settings.DEBUG:

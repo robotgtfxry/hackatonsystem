@@ -27,13 +27,9 @@ def dashboard(request):
     if profile.is_participant:
         memberships = TeamMember.objects.filter(user=request.user).select_related('team', 'team__hackathon')
         context['memberships'] = memberships
-    elif profile.is_jury:
-        from judging.models import JuryAssignment
-        assignments = JuryAssignment.objects.filter(jury=request.user).select_related('hackathon')
-        context['assignments'] = assignments
     elif profile.is_admin:
         from hackathon.models import Hackathon
-        context['hackathons'] = Hackathon.objects.all()
+        context['hackathon'] = Hackathon.objects.first()
 
     return render(request, 'accounts/dashboard.html', context)
 

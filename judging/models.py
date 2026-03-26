@@ -1,7 +1,5 @@
 import uuid
 from django.db import models
-from django.contrib.auth.models import User
-from django.core.validators import MinValueValidator
 from hackathon.models import Hackathon
 from projects.models import Project
 
@@ -13,40 +11,15 @@ class Criterion(models.Model):
     max_points = models.PositiveIntegerField(default=10, verbose_name='Max punktów')
     weight = models.FloatField(default=1.0, verbose_name='Waga')
 
+    @property
+    def points_range(self):
+        return range(1, self.max_points + 1)
+
     def __str__(self):
         return f"{self.name} (max {self.max_points})"
 
     class Meta:
         verbose_name_plural = 'Criteria'
-
-
-class JuryAssignment(models.Model):
-    jury = models.ForeignKey(User, on_delete=models.CASCADE, related_name='jury_assignments')
-    hackathon = models.ForeignKey(Hackathon, on_delete=models.CASCADE, related_name='jury_assignments')
-
-    def __str__(self):
-        return f"{self.jury.username} -> {self.hackathon.name}"
-
-    class Meta:
-        unique_together = ['jury', 'hackathon']
-
-
-class Score(models.Model):
-    jury = models.ForeignKey(User, on_delete=models.CASCADE, related_name='scores')
-    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='scores')
-    criterion = models.ForeignKey(Criterion, on_delete=models.CASCADE, related_name='scores')
-    points = models.PositiveIntegerField(
-        validators=[MinValueValidator(0)],
-        verbose_name='Punkty'
-    )
-    comment = models.TextField(blank=True, verbose_name='Komentarz')
-    scored_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return f"{self.project.title} - {self.criterion.name}: {self.points}"
-
-    class Meta:
-        unique_together = ['jury', 'project', 'criterion']
 
 
 class JuryMember(models.Model):
@@ -84,16 +57,17 @@ class JurySession(models.Model):
 
 
 class Vote(models.Model):
-    """Głos jury na projekt (jeden głos na projekt na członka jury)."""
+    """Głos jury na projekt per kryterium."""
     jury_member = models.ForeignKey(JuryMember, on_delete=models.CASCADE, related_name='votes')
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='votes')
+    criterion = models.ForeignKey(Criterion, on_delete=models.CASCADE, related_name='votes')
     score = models.PositiveIntegerField(verbose_name='Ocena')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ['jury_member', 'project']
+        unique_together = ['jury_member', 'project', 'criterion']
         verbose_name = 'Głos'
         verbose_name_plural = 'Głosy'
 
     def __str__(self):
-        return f"{self.jury_member.name} -> {self.project.title}: {self.score}"
+        return f"{self.jury_member.name} -> {self.project.title} [{self.criterion.name}]: {self.score}"

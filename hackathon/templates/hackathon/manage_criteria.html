@@ -1,12 +1,14 @@
 {% extends 'base.html' %}
 
-{% block title %}Kryteria - {{ hackathon.name }}{% endblock %}
+{% block title %}Kryteria — {{ hackathon.name }}{% endblock %}
 
 {% block content %}
-<h2>Kryteria oceny: {{ hackathon.name }}</h2>
+<div class="section-header">
+    <h2>Kryteria: {{ hackathon.name }}</h2>
+    <a href="{% url 'hackathon:detail' %}" class="btn btn-outline-primary btn-sm">Powrót</a>
+</div>
 
-<div class="card p-3 mb-4">
-    <h5>Dodaj kryterium</h5>
+<div class="card p-3 mb-3">
     <form method="post" class="row g-2 align-items-end">
         {% csrf_token %}
         <div class="col-md-3">
@@ -14,7 +16,7 @@
             <input type="text" name="name" class="form-control" required>
         </div>
         <div class="col-md-2">
-            <label class="form-label">Max punktów</label>
+            <label class="form-label">Max pkt</label>
             <input type="number" name="max_points" class="form-control" value="10" min="1">
         </div>
         <div class="col-md-2">
@@ -34,17 +36,17 @@
 {% if criteria %}
     <table class="table">
         <thead>
-            <tr><th>Nazwa</th><th>Opis</th><th>Max pkt</th><th>Waga</th><th>Akcje</th></tr>
+            <tr><th>Nazwa</th><th>Opis</th><th>Max pkt</th><th>Waga</th><th></th></tr>
         </thead>
         <tbody>
             {% for c in criteria %}
                 <tr>
-                    <td>{{ c.name }}</td>
-                    <td>{{ c.description }}</td>
+                    <td><strong>{{ c.name }}</strong></td>
+                    <td class="text-muted">{{ c.description }}</td>
                     <td>{{ c.max_points }}</td>
                     <td>{{ c.weight }}</td>
                     <td>
-                        <a href="{% url 'hackathon:delete_criterion' hackathon.pk c.pk %}"
+                        <a href="{% url 'hackathon:delete_criterion' c.pk %}"
                            class="btn btn-sm btn-outline-danger"
                            onclick="return confirm('Na pewno usunąć?')">Usuń</a>
                     </td>
@@ -53,8 +55,6 @@
         </tbody>
     </table>
 {% else %}
-    <p class="text-muted">Brak kryteriów.</p>
+    <p class="text-muted">Brak kryteriów. Dodaj pierwsze kryterium powyżej.</p>
 {% endif %}
-
-<a href="{% url 'hackathon:detail' hackathon.pk %}" class="btn btn-outline-secondary">Powrót</a>
 {% endblock %}

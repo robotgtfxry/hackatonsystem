@@ -1,120 +1,74 @@
 {% extends 'base.html' %}
-{% block title %}Status Hackatonu{% endblock %}
+{% block title %}Sterowanie — {{ hackathon.name }}{% endblock %}
 
 {% block content %}
-<h2><i class="bi bi-toggles"></i> Centrum Sterowania</h2>
-
-<!-- Aktualny status -->
-<div class="card mb-4">
-    <div class="card-body d-flex align-items-center justify-content-between">
-        <div>
-            <span class="text-muted">Status:</span>
-            <span class="badge fs-5 ms-2
-                {% if hs.status == 'in_progress' %}bg-success
-                {% elif hs.status == 'submissions_closed' %}bg-warning text-dark
-                {% elif hs.status == 'jury_review' %}bg-primary
-                {% elif hs.status == 'results_announced' %}bg-info
-                {% endif %}">
-                {{ hs.get_status_display }}
-            </span>
-            {% if hs.active_hackathon %}
-                <span class="ms-3">Hackathon: <strong>{{ hs.active_hackathon.name }}</strong></span>
-            {% endif %}
-        </div>
-        <div>
-            <span class="text-muted">Jury: <strong>{{ jury_count }}</strong></span>
-            <span class="ms-3 text-muted">Sesje: <strong>{{ session_count }}</strong></span>
-        </div>
+<div class="section-header">
+    <h2>{{ hackathon.name }} — Sterowanie</h2>
+    <div>
+        <span class="text-muted" style="font-size:13px">Jury: <strong>{{ jury_count }}</strong> &middot; Sesje: <strong>{{ session_count }}</strong></span>
     </div>
 </div>
 
-<!-- Szybkie akcje — kroki flow -->
-<div class="row g-3 mb-4">
+<div class="row g-2 mb-4">
     <div class="col-md-3">
-        <form method="post">
-            {% csrf_token %}
-            <input type="hidden" name="status" value="in_progress">
-            <input type="hidden" name="active_hackathon" value="{{ hs.active_hackathon_id|default:'' }}">
-            <button type="submit" class="btn btn-success btn-lg w-100 {% if hs.status == 'in_progress' %}active{% endif %}">
-                <i class="bi bi-play-circle"></i><br>
-                <small>1. W trakcie</small>
+        <form method="post">{% csrf_token %}<input type="hidden" name="status" value="planned">
+            <button type="submit" class="btn w-100 {% if hackathon.status == 'planned' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                1. Planowany
             </button>
         </form>
     </div>
     <div class="col-md-3">
-        <form method="post">
-            {% csrf_token %}
-            <input type="hidden" name="status" value="submissions_closed">
-            <input type="hidden" name="active_hackathon" value="{{ hs.active_hackathon_id|default:'' }}">
-            <button type="submit" class="btn btn-warning btn-lg w-100 {% if hs.status == 'submissions_closed' %}active{% endif %}">
-                <i class="bi bi-lock"></i><br>
-                <small>2. Zamknij zgłoszenia</small>
+        <form method="post">{% csrf_token %}<input type="hidden" name="status" value="active">
+            <button type="submit" class="btn w-100 {% if hackathon.status == 'active' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                2. Aktywny
             </button>
         </form>
     </div>
     <div class="col-md-3">
-        <form method="post">
-            {% csrf_token %}
-            <input type="hidden" name="status" value="jury_review">
-            <input type="hidden" name="active_hackathon" value="{{ hs.active_hackathon_id|default:'' }}">
-            <button type="submit" class="btn btn-primary btn-lg w-100 {% if hs.status == 'jury_review' %}active{% endif %}">
-                <i class="bi bi-hand-thumbs-up"></i><br>
-                <small>3. Rozpocznij ocenianie</small>
+        <form method="post">{% csrf_token %}<input type="hidden" name="status" value="judging">
+            <button type="submit" class="btn w-100 {% if hackathon.status == 'judging' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                3. Ocenianie
             </button>
         </form>
     </div>
     <div class="col-md-3">
-        <form method="post">
-            {% csrf_token %}
-            <input type="hidden" name="status" value="results_announced">
-            <input type="hidden" name="active_hackathon" value="{{ hs.active_hackathon_id|default:'' }}">
-            <button type="submit" class="btn btn-info btn-lg w-100 {% if hs.status == 'results_announced' %}active{% endif %}">
-                <i class="bi bi-trophy"></i><br>
-                <small>4. Ogłoś wyniki</small>
+        <form method="post">{% csrf_token %}<input type="hidden" name="status" value="finished">
+            <button type="submit" class="btn w-100 {% if hackathon.status == 'finished' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                4. Zakończony
             </button>
         </form>
     </div>
 </div>
 
-<!-- Szybkie linki -->
-{% if hs.status == 'jury_review' and hs.active_hackathon %}
-<div class="alert alert-primary">
-    <h5><i class="bi bi-hand-thumbs-up"></i> Ocenianie aktywne!</h5>
-    <a href="{% url 'judging:jury_scanner' %}" class="btn btn-outline-primary me-2"><i class="bi bi-qr-code-scan"></i> Skaner QR</a>
-    <a href="{% url 'judging:presentation_panel' hs.active_hackathon.pk %}" class="btn btn-outline-primary me-2"><i class="bi bi-easel"></i> Panel prezentacji</a>
-    <a href="{% url 'judging:jury_members_list' %}" class="btn btn-outline-primary"><i class="bi bi-people"></i> Lista jury</a>
+<div class="card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        Kryteria oceny
+        <a href="{% url 'hackathon:manage_criteria' %}" class="btn btn-outline-primary btn-sm">Zarządzaj</a>
+    </div>
+    <div class="card-body">
+        {% if criteria %}
+            <table class="table table-sm mb-0">
+                <thead><tr><th>Nazwa</th><th>Max pkt</th><th>Waga</th></tr></thead>
+                <tbody>
+                {% for c in criteria %}
+                    <tr><td>{{ c.name }}</td><td>{{ c.max_points }}</td><td>{{ c.weight }}</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="text-muted mb-0">Brak kryteriów — jury nie będzie mogło głosować.</p>
+        {% endif %}
+    </div>
 </div>
-{% endif %}
 
-<!-- Zmiana hackathonu -->
 <div class="card">
-    <div class="card-header">Wybierz aktywny hackathon</div>
-    <div class="card-body">
-        <form method="post">
-            {% csrf_token %}
-            <input type="hidden" name="status" value="{{ hs.status }}">
-            <div class="input-group">
-                <select name="active_hackathon" class="form-select">
-                    <option value="">— brak —</option>
-                    {% for h in hackathons %}
-                        <option value="{{ h.pk }}" {% if hs.active_hackathon_id == h.pk %}selected{% endif %}>{{ h.name }}</option>
-                    {% endfor %}
-                </select>
-                <button type="submit" class="btn btn-primary">Zapisz</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<div class="card mt-3">
-    <div class="card-header">Jak to działa?</div>
-    <div class="card-body">
-        <ol class="mb-0">
-            <li><strong>W trakcie</strong> — uczestnicy zgłaszają projekty</li>
-            <li><strong>Zamknij zgłoszenia</strong> — blokada nowych projektów</li>
-            <li><strong>Rozpocznij ocenianie</strong> — jury może głosować, otwiera się skaner QR i panel prezentacji</li>
-            <li><strong>Ogłoś wyniki</strong> — koniec głosowania, wyniki widoczne</li>
-        </ol>
+    <div class="card-header">Linki</div>
+    <div class="card-body d-flex flex-wrap gap-2">
+        <a href="{% url 'jury:members' %}" class="btn btn-outline-primary btn-sm">Jury</a>
+        <a href="{% url 'jury:scanner' %}" class="btn btn-outline-primary btn-sm">Skaner QR</a>
+        <a href="{% url 'jury:presentation' %}" class="btn btn-outline-primary btn-sm">Prezentacja</a>
+        <a href="{% url 'jury:vote' %}" class="btn btn-outline-primary btn-sm" target="_blank">Link dla jury</a>
+        <a href="{% url 'jury:results' %}" class="btn btn-outline-primary btn-sm">Wyniki</a>
     </div>
 </div>
 {% endblock %}

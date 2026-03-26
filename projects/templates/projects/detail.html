@@ -4,36 +4,45 @@
 
 {% block content %}
 <h2>{{ project.title }}</h2>
-<p class="text-muted">Zespół: <a href="{% url 'teams:detail' project.team.pk %}">{{ project.team.name }}</a>
-    | Hackathon: {{ project.team.hackathon.name }}</p>
+<p class="text-muted" style="font-size:13px">
+    <a href="{% url 'teams:detail' project.team.pk %}">{{ project.team.name }}</a>
+    &middot; {{ project.team.hackathon.name }}
+    &middot; {{ project.submitted_at|date:"d.m.Y H:i" }}
+</p>
 
 <div class="card p-3 mb-3">
-    <h5>Opis</h5>
     <p>{{ project.description }}</p>
-    <p><strong>Technologie:</strong> {{ project.technologies }}</p>
-    {% if project.repo_url %}
-        <p><a href="{{ project.repo_url }}" target="_blank"><i class="bi bi-github"></i> Repozytorium</a></p>
+    {% if project.technologies %}
+        <p style="font-size:13px"><strong>Technologie:</strong> {{ project.technologies }}</p>
     {% endif %}
-    {% if project.demo_url %}
-        <p><a href="{{ project.demo_url }}" target="_blank"><i class="bi bi-play-circle"></i> Demo</a></p>
+    {% if project.repo_url or project.demo_url %}
+        <div class="d-flex gap-3" style="font-size:14px">
+            {% if project.repo_url %}
+                <a href="{{ project.repo_url }}" target="_blank"><i class="bi bi-github"></i> Repozytorium</a>
+            {% endif %}
+            {% if project.demo_url %}
+                <a href="{{ project.demo_url }}" target="_blank"><i class="bi bi-play-circle"></i> Demo</a>
+            {% endif %}
+        </div>
     {% endif %}
-    <p class="text-muted">Oddano: {{ project.submitted_at|date:"d.m.Y H:i" }}</p>
 </div>
 
 {% if files %}
-    <h5>Pliki</h5>
-    <ul class="list-group mb-3">
+    <h4>Pliki</h4>
+    <div class="card mb-3">
         {% for f in files %}
-            <li class="list-group-item">
+            <div class="item-row">
                 <a href="{{ f.file.url }}">{{ f.file.name }}</a>
-                {% if f.description %} - {{ f.description }}{% endif %}
-            </li>
+                {% if f.description %}<span class="text-muted ms-2" style="font-size:13px">{{ f.description }}</span>{% endif %}
+            </div>
         {% endfor %}
-    </ul>
+    </div>
 {% endif %}
 
 {% if is_team_member %}
-    <a href="{% url 'projects:edit' project.pk %}" class="btn btn-outline-secondary me-2">Edytuj</a>
-    <a href="{% url 'projects:upload_file' project.pk %}" class="btn btn-outline-primary">Dodaj plik</a>
+    <div class="d-flex gap-2">
+        <a href="{% url 'projects:edit' project.pk %}" class="btn btn-outline-primary btn-sm">Edytuj</a>
+        <a href="{% url 'projects:upload_file' project.pk %}" class="btn btn-outline-primary btn-sm">Dodaj plik</a>
+    </div>
 {% endif %}
 {% endblock %}

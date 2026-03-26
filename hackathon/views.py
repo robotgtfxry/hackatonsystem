@@ -2,9 +2,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from .models import Hackathon
-from .forms import HackathonForm, CreateJuryForm
-from accounts.models import UserProfile
-from judging.models import Criterion, JuryAssignment
+from .forms import HackathonForm
+from judging.models import Criterion
 from django.contrib.auth.models import User
 from teams.models import Team
 from projects.models import Project
@@ -20,68 +19,45 @@ def admin_required(view_func):
     return wrapper
 
 
-def hackathon_list(request):
-    hackathons = Hackathon.objects.all()
-    return render(request, 'hackathon/list.html', {'hackathons': hackathons})
-
-
-def hackathon_detail(request, pk):
-    hackathon = get_object_or_404(Hackathon, pk=pk)
+def hackathon_detail(request):
+    hackathon = Hackathon.current()
     teams = hackathon.teams.all()
     return render(request, 'hackathon/detail.html', {'hackathon': hackathon, 'teams': teams})
 
 
 @admin_required
 def hackathon_create(request):
+    if Hackathon.objects.exists():
+        messages.warning(request, 'Hackathon już istnieje. Edytuj istniejący.')
+        return redirect('hackathon:detail')
     if request.method == 'POST':
         form = HackathonForm(request.POST)
         if form.is_valid():
             form.save()
             messages.success(request, 'Hackathon został utworzony!')
-            return redirect('hackathon:list')
+            return redirect('hackathon:detail')
     else:
         form = HackathonForm()
     return render(request, 'hackathon/form.html', {'form': form, 'title': 'Nowy hackathon'})
 
 
 @admin_required
-def hackathon_edit(request, pk):
-    hackathon = get_object_or_404(Hackathon, pk=pk)
+def hackathon_edit(request):
+    hackathon = Hackathon.current()
     if request.method == 'POST':
         form = HackathonForm(request.POST, instance=hackathon)
         if form.is_valid():
             form.save()
             messages.success(request, 'Hackathon zaktualizowany!')
-            return redirect('hackathon:detail', pk=pk)
+            return redirect('hackathon:detail')
     else:
         form = HackathonForm(instance=hackathon)
     return render(request, 'hackathon/form.html', {'form': form, 'title': 'Edytuj hackathon'})
 
 
 @admin_required
-def manage_jury(request, pk):
-    hackathon = get_object_or_404(Hackathon, pk=pk)
-    jury_profiles = UserProfile.objects.filter(role='jury')
-    assigned = JuryAssignment.objects.filter(hackathon=hackathon).values_list('jury_id', flat=True)
-
-    if request.method == 'POST':
-        selected_ids = request.POST.getlist('jury_ids')
-        JuryAssignment.objects.filter(hackathon=hackathon).delete()
-        for uid in selected_ids:
-            JuryAssignment.objects.create(jury_id=uid, hackathon=hackathon)
-        messages.success(request, 'Jury zaktualizowane!')
-        return redirect('hackathon:detail', pk=pk)
-
-    return render(request, 'hackathon/manage_jury.html', {
-        'hackathon': hackathon,
-        'jury_profiles': jury_profiles,
-        'assigned': list(assigned),
-    })
-
-
-@admin_required
-def manage_criteria(request, pk):
-    hackathon = get_object_or_404(Hackathon, pk=pk)
+def manage_criteria(request):
+    hackathon = Hackathon.current()
     criteria = hackathon.criteria.all()
 
     if request.method == 'POST':
@@ -95,7 +71,7 @@ def manage_criteria(request, pk):
                 max_points=max_points, weight=weight, description=description
             )
             messages.success(request, f'Dodano kryterium: {name}')
-            return redirect('hackathon:manage_criteria', pk=pk)
+            return redirect('hackathon:manage_criteria')
 
     return render(request, 'hackathon/manage_criteria.html', {
         'hackathon': hackathon,
@@ -104,21 +80,22 @@ def manage_criteria(request, pk):
 
 
 @admin_required
-def delete_criterion(request, pk, criterion_pk):
-    criterion = get_object_or_404(Criterion, pk=criterion_pk, hackathon_id=pk)
+def delete_criterion(request, criterion_pk):
+    hackathon = Hackathon.current()
+    criterion = get_object_or_404(Criterion, pk=criterion_pk, hackathon=hackathon)
     criterion.delete()
     messages.success(request, 'Kryterium usunięte.')
-    return redirect('hackathon:manage_criteria', pk=pk)
+    return redirect('hackathon:manage_criteria')
 
 
 @admin_required
 def admin_panel(request):
-    hackathons = Hackathon.objects.all()
+    hackathon = Hackathon.objects.first()
     users = User.objects.all().select_related('profile')
     teams = Team.objects.all().select_related('hackathon', 'captain')
     projects = Project.objects.all().select_related('team', 'team__hackathon')
     return render(request, 'hackathon/admin_panel.html', {
-        'hackathons': hackathons,
+        'hackathon': hackathon,
         'users': users,
         'teams': teams,
         'projects': projects,
@@ -126,32 +103,11 @@ def admin_panel(request):
 
 
 @admin_required
-def create_jury(request):
-    if request.method == 'POST':
-        form = CreateJuryForm(request.POST)
-        if form.is_valid():
-            user = User.objects.create_user(
-                username=form.cleaned_data['username'],
-                email=form.cleaned_data['email'],
-                password=form.cleaned_data['password'],
-                first_name=form.cleaned_data['first_name'],
-                last_name=form.cleaned_data['last_name'],
-            )
-            user.profile.role = 'jury'
-            user.profile.save()
-            messages.success(request, f'Konto jury "{user.get_full_name()}" zostało utworzone!')
-            return redirect('hackathon:admin_panel')
-    else:
-        form = CreateJuryForm()
-    return render(request, 'hackathon/create_jury.html', {'form': form})
-
-
-@admin_required
 def change_user_role(request, user_id):
     if request.method == 'POST':
         target_user = get_object_or_404(User, pk=user_id)
         new_role = request.POST.get('role')
-        if new_role in ['participant', 'jury', 'admin']:
+        if new_role in ['participant', 'admin']:
             target_user.profile.role = new_role
             target_user.profile.save()
             messages.success(request, f'Rola użytkownika {target_user.username} zmieniona na {new_role}.')
@@ -192,8 +148,8 @@ def delete_project(request, project_id):
 
 
 @admin_required
-def delete_hackathon(request, pk):
-    hackathon = get_object_or_404(Hackathon, pk=pk)
+def delete_hackathon(request):
+    hackathon = Hackathon.current()
     if request.method == 'POST':
         name = hackathon.name
         hackathon.delete()

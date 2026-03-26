@@ -1,61 +1,48 @@
 {% extends 'base.html' %}
-{% block title %}Członkowie Jury{% endblock %}
+{% block title %}Jury — {{ hackathon.name }}{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="bi bi-people"></i> Członkowie Jury</h2>
-    <div>
-        <a href="{% url 'judging:jury_members_add' %}" class="btn btn-success"><i class="bi bi-plus-lg"></i> Dodaj</a>
-        <a href="{% url 'judging:jury_scanner' %}" class="btn btn-primary"><i class="bi bi-qr-code-scan"></i> Skaner QR</a>
+<div class="section-header">
+    <h2>Jury — {{ hackathon.name }}</h2>
+    <div class="d-flex gap-1">
+        <a href="{% url 'jury:members_add' %}" class="btn btn-primary btn-sm">+ Dodaj</a>
+        <a href="{% url 'jury:scanner' %}" class="btn btn-outline-primary btn-sm">Skaner QR</a>
     </div>
 </div>
 
-<div class="alert alert-info">
-    <i class="bi bi-info-circle"></i>
-    Link dla jury: <strong><code>{% url 'judging:jury_vote_panel' %}</code></strong> — jeden link, bez logowania.
-</div>
+<p class="text-muted" style="font-size:13px">Link dla jury: <code>/jury/vote/</code></p>
 
 {% if members %}
-<div class="table-responsive">
-    <table class="table table-striped">
+    <table class="table">
         <thead>
-            <tr>
-                <th>Imię i nazwisko</th>
-                <th>Email</th>
-                <th>Sesja</th>
-                <th>QR</th>
-                <th>Akcje</th>
-            </tr>
+            <tr><th>Imię i nazwisko</th><th>Email</th><th>Sesja</th><th>QR</th><th></th></tr>
         </thead>
         <tbody>
             {% for m in members %}
             <tr>
-                <td>{{ m.name }}</td>
-                <td>{{ m.email }}</td>
+                <td><strong>{{ m.name }}</strong></td>
+                <td class="text-muted">{{ m.email }}</td>
                 <td>
                     {% if m.pk in paired_member_ids %}
-                        <span class="badge bg-success"><i class="bi bi-wifi"></i> Połączony</span>
+                        <span class="badge bg-success">Połączony</span>
                     {% else %}
-                        <span class="badge bg-secondary">Brak sesji</span>
+                        <span class="badge bg-secondary">Brak</span>
                     {% endif %}
                 </td>
                 <td>
-                    <a href="{% url 'judging:jury_qr_display' m.qr_token %}" class="btn btn-sm btn-outline-primary" target="_blank">
-                        <i class="bi bi-qr-code"></i> QR
-                    </a>
+                    <a href="{% url 'jury:qr_display' qr_token=m.qr_token %}" class="btn btn-sm btn-outline-primary" target="_blank">QR</a>
                 </td>
                 <td>
-                    <form method="post" action="{% url 'judging:jury_member_delete' m.pk %}" class="d-inline" onsubmit="return confirm('Na pewno usunąć?')">
+                    <form method="post" action="{% url 'jury:member_delete' pk=m.pk %}" class="d-inline" onsubmit="return confirm('Na pewno usunąć?')">
                         {% csrf_token %}
-                        <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Usuń</button>
                     </form>
                 </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
-</div>
 {% else %}
-    <div class="alert alert-warning">Brak członków jury. Dodaj ich przyciskiem powyżej.</div>
+    <p class="text-muted">Brak członków jury.</p>
 {% endif %}
 {% endblock %}

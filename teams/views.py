@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.contrib.auth.models import User
 from .models import Team, TeamMember, InviteLink
 from .forms import TeamForm, AddMemberForm
+from hackathon.models import Hackathon
 
 
 @login_required
@@ -30,10 +31,12 @@ def team_detail(request, pk):
 
 @login_required
 def team_create(request):
+    hackathon = Hackathon.current()
     if request.method == 'POST':
         form = TeamForm(request.POST)
         if form.is_valid():
             team = form.save(commit=False)
+            team.hackathon = hackathon
             team.captain = request.user
             team.save()
             TeamMember.objects.create(team=team, user=request.user, role='captain')

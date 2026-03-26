@@ -4,9 +4,9 @@
 
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-md-8">
+    <div class="col-md-7">
+        <h2>{{ title }}</h2>
         <div class="card p-4">
-            <h2>{{ title }}</h2>
             <form method="post">
                 {% csrf_token %}
                 {% for field in form %}
@@ -20,8 +20,10 @@
                         {% endif %}
                     </div>
                 {% endfor %}
-                <button type="submit" class="btn btn-primary">Zapisz</button>
-                <a href="{% url 'hackathon:list' %}" class="btn btn-outline-secondary">Anuluj</a>
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">Zapisz</button>
+                    <a href="{% url 'hackathon:detail' %}" class="btn btn-outline-primary">Anuluj</a>
+                </div>
             </form>
         </div>
     </div>

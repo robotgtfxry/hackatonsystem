@@ -16,7 +16,12 @@
       "Bash(py manage.py migrate)",
       "Bash(python manage.py makemigrations)",
       "Bash(python3 manage.py makemigrations)",
-      "Bash(py manage.py check)"
+      "Bash(py manage.py check)",
+      "Bash(py manage.py makemigrations accounts)",
+      "Bash(py manage.py makemigrations judging)",
+      "Bash(py -c \"import django; import os; os.environ[''DJANGO_SETTINGS_MODULE'']=''hackatonsystem.settings''; django.setup\\(\\); from judging.models import Vote; print\\(f''Existing votes: {Vote.objects.count\\(\\)}''\\)\")",
+      "Bash(py -c \":*)",
+      "Bash(py manage.py validate_templates)"
     ]
   }
 }

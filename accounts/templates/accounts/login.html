@@ -4,9 +4,9 @@
 
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-md-5">
-        <div class="card p-4">
-            <h2 class="text-center mb-4"><i class="bi bi-box-arrow-in-right"></i> Logowanie</h2>
+    <div class="col-md-4">
+        <h2 class="text-center">Logowanie</h2>
+        <div class="card p-4 mt-2">
             <form method="post">
                 {% csrf_token %}
                 {% for field in form %}
@@ -21,11 +21,11 @@
                     </div>
                 {% endfor %}
                 {% if form.errors %}
-                    <div class="alert alert-danger">Nieprawidłowa nazwa użytkownika lub hasło.</div>
+                    <div class="alert alert-danger" style="font-size:13px">Nieprawidłowa nazwa użytkownika lub hasło.</div>
                 {% endif %}
                 <button type="submit" class="btn btn-primary w-100">Zaloguj</button>
             </form>
-            <p class="text-center mt-3">Nie masz konta? <a href="{% url 'accounts:register' %}">Zarejestruj się</a></p>
+            <p class="text-center mt-3 mb-0" style="font-size:13px">Nie masz konta? <a href="{% url 'accounts:register' %}">Zarejestruj się</a></p>
         </div>
     </div>
 </div>

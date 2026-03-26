@@ -1,43 +1,39 @@
 {% extends 'base.html' %}
-{% block title %}Jury — Oczekiwanie{% endblock %}
+{% block title %}Jury — {{ hackathon.name }}{% endblock %}
 
 {% block content %}
 <div class="text-center py-5">
-    <h2><i class="bi bi-qr-code"></i> Panel Jury</h2>
-    <p class="lead">Pokaż poniższy kod QR administratorowi, który zeskanuje go i przypisze Cię do sesji.</p>
+    <h2>Panel Jury</h2>
+    <p class="text-muted">{{ hackathon.name }}</p>
+    <p>Pokaż poniższy kod QR administratorowi.</p>
 
     <div class="my-4">
-        <div id="qrcode" class="d-inline-block p-4 bg-white rounded shadow"></div>
+        <div id="qrcode" class="d-inline-block p-3 bg-white rounded" style="border:1px solid var(--c-border)"></div>
     </div>
 
-    <div class="mt-3 mb-2">
+    <p style="font-size:13px">
         <span class="text-muted">Kod sesji:</span>
-        <code class="fs-5 user-select-all px-2 py-1 bg-light border rounded">{{ jury_session.code }}</code>
-    </div>
+        <code class="px-2 py-1 bg-light border rounded">{{ jury_session.code }}</code>
+    </p>
 
     <div class="spinner-border text-primary mt-3" role="status"></div>
-    <p class="text-muted mt-2">Oczekiwanie na skan admina...</p>
+    <p class="text-muted mt-2" style="font-size:13px">Oczekiwanie na skan admina...</p>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script>
     new QRCode(document.getElementById("qrcode"), {
         text: "{{ jury_session.code }}",
-        width: 280,
-        height: 280,
+        width: 240,
+        height: 240,
         colorDark: "#000000",
         colorLight: "#ffffff",
     });
 
-    // Polling — sprawdzaj co 2s czy admin sparował sesję
     setInterval(() => {
-        fetch('{% url "judging:jury_check_session_api" %}')
+        fetch('{% url "jury:check_session_api" %}')
             .then(r => r.json())
-            .then(data => {
-                if (data.paired) {
-                    location.reload();
-                }
-            })
+            .then(data => { if (data.paired) location.reload(); })
             .catch(() => {});
     }, 2000);
 </script>

@@ -7,7 +7,6 @@ from django.dispatch import receiver
 class UserProfile(models.Model):
     ROLE_CHOICES = [
         ('participant', 'Uczestnik'),
-        ('jury', 'Jury'),
         ('admin', 'Administrator'),
     ]
 
@@ -21,10 +20,6 @@ class UserProfile(models.Model):
     @property
     def is_admin(self):
         return self.role == 'admin'
-
-    @property
-    def is_jury(self):
-        return self.role == 'jury'
 
     @property
     def is_participant(self):

@@ -1,101 +1,125 @@
 {% extends 'base.html' %}
-{% block title %}Panel Głosowania — {{ member.name }}{% endblock %}
+{% load judging_tags %}
+{% block title %}Głosowanie — {{ member.name }}{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h2><i class="bi bi-hand-thumbs-up"></i> Panel Głosowania</h2>
-    <span class="badge bg-info fs-6">{{ member.name }}</span>
+<div class="section-header">
+    <h2>{{ hackathon.name }}</h2>
+    <span class="badge bg-info">{{ member.name }}</span>
 </div>
 
 {% if waiting %}
     <div class="text-center py-5">
         <div class="spinner-border text-primary mb-3" role="status"></div>
-        <h4>Oczekiwanie na rozpoczęcie oceniania...</h4>
-        <p class="text-muted">Sesja aktywna. Status: <strong>{{ status.get_status_display }}</strong></p>
+        <p>Oczekiwanie na rozpoczęcie oceniania...</p>
+        <p class="text-muted" style="font-size:13px">Status: {{ hackathon.get_status_display }}</p>
     </div>
 
 {% elif not project %}
     <div class="text-center py-5">
         <div class="spinner-border text-secondary mb-3" role="status"></div>
-        <h4>Oczekiwanie na wybór projektu...</h4>
-        <p class="text-muted">Administrator wybierze projekt do oceny.</p>
+        <p>Oczekiwanie na wybór projektu...</p>
     </div>
+
+{% elif not criteria %}
+    <div class="alert alert-warning">Brak zdefiniowanych kryteriów oceny. Poczekaj na administratora.</div>
 
 {% else %}
-    <div class="card mb-4">
-        <div class="card-header bg-primary text-white">
-            <h4 class="mb-0"><i class="bi bi-folder"></i> {{ project.title }}</h4>
-        </div>
+    <div class="card mb-3">
         <div class="card-body">
-            <p><strong>Zespół:</strong> {{ project.team.name }}</p>
-            <p><strong>Opis:</strong> {{ project.description }}</p>
-            <p><strong>Technologie:</strong> {{ project.technologies }}</p>
+            <h4 class="mb-1">{{ project.title }}</h4>
+            <p class="text-muted mb-2" style="font-size:13px">{{ project.team.name }} &middot; {{ project.team.members.count }} os.</p>
+            <p style="font-size:14px">{{ project.description }}</p>
+            {% if project.technologies %}
+                <p style="font-size:13px"><strong>Technologie:</strong> {{ project.technologies }}</p>
+            {% endif %}
             {% if project.repo_url %}
-                <p><strong>Repo:</strong> <a href="{{ project.repo_url }}" target="_blank">{{ project.repo_url }}</a></p>
+                <a href="{{ project.repo_url }}" target="_blank" style="font-size:13px" class="me-2">Repo</a>
             {% endif %}
             {% if project.demo_url %}
-                <p><strong>Demo:</strong> <a href="{{ project.demo_url }}" target="_blank">{{ project.demo_url }}</a></p>
+                <a href="{{ project.demo_url }}" target="_blank" style="font-size:13px">Demo</a>
             {% endif %}
         </div>
     </div>
 
-    {% if existing_vote %}
-        <div class="alert alert-success">
-            <i class="bi bi-check-circle"></i> Twoja ocena: <strong>{{ existing_vote.score }}/10</strong>
-            — możesz zmienić poniżej.
-        </div>
+    {% if existing_votes %}
+        <p class="text-muted" style="font-size:13px">Już oceniłeś ten projekt — możesz zmienić oceny poniżej.</p>
     {% endif %}
 
-    <div class="card">
-        <div class="card-header">Twoja ocena</div>
-        <div class="card-body">
-            <form method="post">
-                {% csrf_token %}
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Ocena (1-10)</label>
-                    <div class="d-flex gap-2 flex-wrap">
-                        {% with "1 2 3 4 5 6 7 8 9 10" as scores %}
-                        {% for s in scores.split %}
-                            <button type="button"
-                                    class="btn btn-lg score-btn {% if existing_vote.score|stringformat:'d' == s %}btn-primary{% else %}btn-outline-primary{% endif %}"
-                                    data-score="{{ s }}"
-                                    onclick="selectScore({{ s }})">
-                                {{ s }}
-                            </button>
-                        {% endfor %}
-                        {% endwith %}
-                    </div>
-                    <input type="hidden" name="score" id="score-input" value="{{ existing_vote.score|default:'' }}">
+    <form method="post" id="vote-form">
+        {% csrf_token %}
+        {% for c in criteria %}
+        <div class="card mb-2">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <strong style="font-size:14px">{{ c.name }}</strong>
+                    <span class="text-muted" style="font-size:12px">max {{ c.max_points }}</span>
                 </div>
-                <button type="submit" class="btn btn-success btn-lg" id="submit-btn" {% if not existing_vote %}disabled{% endif %}>
-                    <i class="bi bi-send"></i> {% if existing_vote %}Zmień ocenę{% else %}Wyślij ocenę{% endif %}
-                </button>
-            </form>
+                {% if c.description %}
+                    <p class="text-muted mb-2" style="font-size:12px">{{ c.description }}</p>
+                {% endif %}
+                <div class="d-flex gap-1 flex-wrap" id="buttons-{{ c.pk }}">
+                    {% for i in c.points_range %}
+                        <button type="button" class="score-btn"
+                                data-criterion="{{ c.pk }}" data-score="{{ i }}"
+                                onclick="selectScore({{ c.pk }}, {{ i }})">
+                            {{ i }}
+                        </button>
+                    {% endfor %}
+                </div>
+                <input type="hidden" name="score_{{ c.pk }}" id="score-input-{{ c.pk }}" value="">
+            </div>
         </div>
-    </div>
+        {% endfor %}
+
+        <button type="submit" class="btn btn-primary w-100 mb-4" id="submit-btn"
+                {% if not existing_votes %}disabled{% endif %}>
+            {% if existing_votes %}Zmień oceny{% else %}Wyślij oceny{% endif %}
+        </button>
+    </form>
 {% endif %}
 
 <script>
-    function selectScore(score) {
-        document.getElementById('score-input').value = score;
-        document.getElementById('submit-btn').disabled = false;
-        document.querySelectorAll('.score-btn').forEach(btn => {
-            btn.classList.remove('btn-primary');
-            btn.classList.add('btn-outline-primary');
+    const totalCriteria = {{ criteria|length }};
+    const filledCriteria = new Set();
+
+    const existingVotes = {
+        {% for cid, score in existing_votes.items %}
+            "{{ cid }}": {{ score }}{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    };
+    Object.entries(existingVotes).forEach(([cid, score]) => {
+        const inp = document.getElementById('score-input-' + cid);
+        if (inp) {
+            inp.value = score;
+            filledCriteria.add(cid);
+            const btn = document.querySelector('[data-criterion="' + cid + '"][data-score="' + score + '"]');
+            if (btn) btn.classList.add('selected');
+        }
+    });
+
+    function selectScore(criterionId, score) {
+        document.getElementById('score-input-' + criterionId).value = score;
+        filledCriteria.add(String(criterionId));
+
+        document.querySelectorAll('[data-criterion="' + criterionId + '"]').forEach(btn => {
+            btn.classList.remove('selected');
         });
-        document.querySelector('[data-score="' + score + '"]').classList.remove('btn-outline-primary');
-        document.querySelector('[data-score="' + score + '"]').classList.add('btn-primary');
+        document.querySelector('[data-criterion="' + criterionId + '"][data-score="' + score + '"]').classList.add('selected');
+
+        if (filledCriteria.size >= totalCriteria) {
+            document.getElementById('submit-btn').disabled = false;
+        }
     }
 
-    // Polling — odświeżaj gdy zmieni się projekt
     let currentProjectId = {% if project %}{{ project.pk }}{% else %}null{% endif %};
     setInterval(() => {
-        fetch('{% url "judging:jury_check_session_api" %}')
+        fetch('{% url "jury:check_session_api" %}')
             .then(r => r.json())
             .then(data => {
                 if (!data.paired) { location.reload(); return; }
                 let newId = data.project ? data.project.id : null;
-                if (newId !== currentProjectId) { location.reload(); }
+                if (newId !== currentProjectId) location.reload();
             })
             .catch(() => {});
     }, 3000);
