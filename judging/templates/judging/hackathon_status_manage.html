@@ -61,7 +61,7 @@
     </div>
 </div>
 
-<div class="card">
+<div class="card mb-3">
     <div class="card-header">Linki</div>
     <div class="card-body d-flex flex-wrap gap-2">
         <a href="{% url 'jury:members' %}" class="btn btn-outline-primary btn-sm">Jury</a>
@@ -69,6 +69,14 @@
         <a href="{% url 'jury:presentation' %}" class="btn btn-outline-primary btn-sm">Prezentacja</a>
         <a href="{% url 'jury:vote' %}" class="btn btn-outline-primary btn-sm" target="_blank">Link dla jury</a>
         <a href="{% url 'jury:results' %}" class="btn btn-outline-primary btn-sm">Wyniki</a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">Pobierz PDF</div>
+    <div class="card-body d-flex flex-wrap gap-2">
+        <a href="{% url 'hackathon:pdf_results' %}" class="btn btn-primary btn-sm"><i class="bi bi-file-earmark-pdf"></i> Protokół wyników</a>
+        <a href="{% url 'hackathon:pdf_teams' %}" class="btn btn-primary btn-sm"><i class="bi bi-file-earmark-pdf"></i> Zestawienie zespołów</a>
     </div>
 </div>
 {% endblock %}

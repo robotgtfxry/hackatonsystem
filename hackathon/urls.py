@@ -15,4 +15,6 @@ urlpatterns = [
     path('admin-panel/team/<int:team_id>/delete/', views.delete_team, name='delete_team'),
     path('admin-panel/project/<int:project_id>/delete/', views.delete_project, name='delete_project'),
     path('delete/', views.delete_hackathon, name='delete_hackathon'),
+    path('pdf/wyniki/', views.pdf_results, name='pdf_results'),
+    path('pdf/zespoly/', views.pdf_teams, name='pdf_teams'),
 ]
