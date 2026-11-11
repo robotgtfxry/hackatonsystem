@@ -8,14 +8,8 @@
 
 <div class="section-header">
     <h4 class="mb-0">Członkowie ({{ members.count }}/{{ team.hackathon.max_team_size }})</h4>
-    {% if is_captain %}
-        <div class="d-flex gap-1">
-            <a href="{% url 'teams:add_member' team.pk %}" class="btn btn-outline-primary btn-sm">Dodaj</a>
-            <form method="post" action="{% url 'teams:generate_invite' team.pk %}" class="d-inline">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-outline-primary btn-sm">Link zaproszeniowy</button>
-            </form>
-        </div>
+    {% if can_add %}
+        <a href="{% url 'teams:add_member' team.pk %}" class="btn btn-outline-primary btn-sm">+ Dodaj członka</a>
     {% endif %}
 </div>
 
@@ -23,19 +17,27 @@
     {% for m in members %}
         <div class="item-row">
             <div>
-                <strong>{{ m.user.get_full_name|default:m.user.username }}</strong>
+                <strong>{{ m.full_name }}</strong>
                 <span class="badge bg-{% if m.role == 'captain' %}warning{% else %}secondary{% endif %} ms-1">{{ m.get_role_display }}</span>
+                {% if is_captain and m.email %}<span class="text-muted ms-2" style="font-size:13px">{{ m.email }}</span>{% endif %}
             </div>
-            {% if is_captain and m.role != 'captain' %}
-                <a href="{% url 'teams:remove_member' team.pk m.user.pk %}"
-                   class="btn btn-sm btn-outline-danger"
-                   onclick="return confirm('Usunąć tego członka?')">Usuń</a>
+            {% if is_captain %}
+                <div class="d-flex gap-1">
+                    <a href="{% url 'teams:edit_member' team.pk m.pk %}" class="btn btn-sm btn-outline-primary">Edytuj</a>
+                    {% if m.role != 'captain' %}
+                        <form method="post" action="{% url 'teams:remove_member' team.pk m.pk %}" class="d-inline"
+                              onsubmit="return confirm('Usunąć tego członka?')">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-danger">Usuń</button>
+                        </form>
+                    {% endif %}
+                </div>
             {% endif %}
         </div>
     {% endfor %}
 </div>
 
-{% if is_member %}
+{% if is_captain %}
     <div class="d-flex gap-2">
         {% if has_project %}
             <a href="{% url 'projects:detail' team.project.pk %}" class="btn btn-primary btn-sm">Projekt</a>

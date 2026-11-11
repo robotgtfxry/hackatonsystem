@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.utils import timezone
 from .models import Project, ProjectFile
 from .forms import ProjectForm, ProjectFileForm
-from teams.models import Team, TeamMember
+from teams.models import Team
 
 
 def _is_admin_or_jury(request):
@@ -25,14 +25,15 @@ def project_list(request):
 
 
 def project_detail(request, pk):
-    if not _is_admin_or_jury(request):
+    project = get_object_or_404(Project, pk=pk)
+    is_team_member = (
+        request.user.is_authenticated and project.team.captain == request.user
+    )
+    # Kapitan widzi swój projekt; pozostałe projekty tylko admin i jury
+    if not (is_team_member or _is_admin_or_jury(request)):
         messages.error(request, 'Projekty są dostępne tylko dla admina i jury.')
         return redirect('home')
-    project = get_object_or_404(Project, pk=pk)
     files = project.files.all()
-    is_team_member = (
-        request.user.is_authenticated and project.team.members.filter(user=request.user).exists()
-    )
     return render(request, 'projects/detail.html', {
         'project': project,
         'files': files,
@@ -44,8 +45,8 @@ def project_detail(request, pk):
 def project_submit(request, team_pk):
     team = get_object_or_404(Team, pk=team_pk)
 
-    if not team.members.filter(user=request.user).exists():
-        messages.error(request, 'Nie jesteś członkiem tego zespołu.')
+    if team.captain != request.user:
+        messages.error(request, 'Tylko kapitan zespołu może to zrobić.')
         return redirect('teams:detail', pk=team_pk)
 
     hackathon = team.hackathon
@@ -74,8 +75,8 @@ def project_submit(request, team_pk):
 def project_edit(request, pk):
     project = get_object_or_404(Project, pk=pk)
 
-    if not project.team.members.filter(user=request.user).exists():
-        messages.error(request, 'Nie jesteś członkiem tego zespołu.')
+    if project.team.captain != request.user:
+        messages.error(request, 'Tylko kapitan zespołu może to zrobić.')
         return redirect('projects:detail', pk=pk)
 
     deadline = project.team.hackathon.submit_deadline
@@ -98,8 +99,8 @@ def project_edit(request, pk):
 def upload_file(request, pk):
     project = get_object_or_404(Project, pk=pk)
 
-    if not project.team.members.filter(user=request.user).exists():
-        messages.error(request, 'Nie jesteś członkiem tego zespołu.')
+    if project.team.captain != request.user:
+        messages.error(request, 'Tylko kapitan zespołu może to zrobić.')
         return redirect('projects:detail', pk=pk)
 
     if request.method == 'POST':

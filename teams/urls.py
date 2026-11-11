@@ -8,7 +8,6 @@ urlpatterns = [
     path('<int:pk>/', views.team_detail, name='detail'),
     path('create/', views.team_create, name='create'),
     path('<int:pk>/add-member/', views.add_member, name='add_member'),
-    path('<int:pk>/remove-member/<int:user_id>/', views.remove_member, name='remove_member'),
-    path('<int:pk>/invite/', views.generate_invite, name='generate_invite'),
-    path('join/<uuid:token>/', views.join_team, name='join_team'),
+    path('<int:pk>/member/<int:member_id>/edit/', views.edit_member, name='edit_member'),
+    path('<int:pk>/member/<int:member_id>/remove/', views.remove_member, name='remove_member'),
 ]

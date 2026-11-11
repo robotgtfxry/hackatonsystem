@@ -2,18 +2,21 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.db import transaction
 from .forms import RegisterForm, UserUpdateForm
-from teams.models import TeamMember
+from teams.models import Team, TeamMember
 
 
 def register(request):
     if request.method == 'POST':
         form = RegisterForm(request.POST)
         if form.is_valid():
-            user = form.save()
+            with transaction.atomic():
+                user = form.save()
+                team = Team.create_with_captain(form.cleaned_data['team_name'], form.hackathon, user)
             login(request, user)
-            messages.success(request, 'Konto zostało utworzone!')
-            return redirect('accounts:dashboard')
+            messages.success(request, f'Konto i zespół "{team.name}" zostały utworzone! Dodaj teraz członków zespołu.')
+            return redirect('teams:detail', pk=team.pk)
     else:
         form = RegisterForm()
     return render(request, 'accounts/register.html', {'form': form})

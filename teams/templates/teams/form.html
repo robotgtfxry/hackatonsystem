@@ -4,11 +4,11 @@
 
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-md-5">
+    <div class="col-md-8">
         <h2>{{ title }}</h2>
-        <div class="card p-4">
-            <form method="post">
-                {% csrf_token %}
+        <form method="post">
+            {% csrf_token %}
+            <div class="card p-4 mb-3">
                 {% for field in form %}
                     <div class="mb-3">
                         <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
@@ -18,9 +18,41 @@
                         {% endif %}
                     </div>
                 {% endfor %}
-                <button type="submit" class="btn btn-primary">Utwórz</button>
-            </form>
-        </div>
+            </div>
+
+            {% if formset %}
+                <div class="card p-4 mb-3">
+                    <h4>Członkowie zespołu</h4>
+                    <p class="text-muted" style="font-size:13px">
+                        Ty jesteś kapitanem i jako jedyny masz konto. Wpisz dane pozostałych członków.
+                        Puste wiersze zostaną pominięte. Członków możesz też dodać lub zmienić później.
+                    </p>
+                    {{ formset.management_form }}
+                    {% if formset.non_form_errors %}
+                        <div class="alert alert-danger">{{ formset.non_form_errors }}</div>
+                    {% endif %}
+                    {% for mform in formset %}
+                        <div class="row g-2 mb-2">
+                            <div class="col-auto pt-2 text-muted" style="width:2em">{{ forloop.counter }}.</div>
+                            {% for field in mform %}
+                                <div class="col">
+                                    <input type="{% if field.name == 'email' %}email{% else %}text{% endif %}"
+                                           name="{{ field.html_name }}" id="{{ field.id_for_label }}"
+                                           value="{{ field.value|default_if_none:'' }}"
+                                           class="form-control"
+                                           placeholder="{{ field.label }}{% if not field.field.required %} (opcjonalnie){% endif %}">
+                                    {% if field.errors %}
+                                        <div class="invalid-feedback d-block">{% for e in field.errors %}{{ e }}{% endfor %}</div>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <button type="submit" class="btn btn-primary">Utwórz</button>
+        </form>
     </div>
 </div>
 {% endblock %}

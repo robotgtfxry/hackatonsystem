@@ -19,7 +19,7 @@
                 <p><strong>Zespół:</strong> {{ session.current_project.team.name }} ({{ session.current_project.team.members.count }} os.)</p>
                 <p><strong>Członkowie:</strong>
                     {% for m in session.current_project.team.members.all %}
-                        {{ m.user.get_full_name|default:m.user.username }}{% if not forloop.last %}, {% endif %}
+                        {{ m.full_name }}{% if not forloop.last %}, {% endif %}
                     {% endfor %}
                 </p>
                 <p>{{ session.current_project.description }}</p>

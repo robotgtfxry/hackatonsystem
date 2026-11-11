@@ -315,10 +315,7 @@ def pdf_teams(request):
     data = [['#', 'Zespół', 'Kapitan', 'Członkowie', 'Projekt']]
 
     for i, team in enumerate(teams, 1):
-        members_list = ', '.join(
-            m.user.get_full_name() or m.user.username
-            for m in team.members.all().select_related('user')
-        )
+        members_list = ', '.join(m.full_name for m in team.members.all())
         project_title = team.project.title if hasattr(team, 'project') else '—'
         captain_name = team.captain.get_full_name() or team.captain.username
         data.append([
